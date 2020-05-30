@@ -35,7 +35,7 @@ This folder contains the raw data downloaded from various publicly accessible si
       This folder contains data for mapping counties and cities.
       
       
-> `NHANES_Asthma_Diabetes`
+> `NHANES_Diabetes`
 
       This folder is required to categorize diabetes prevalences into controlled and uncontrolled group.
       
