@@ -5,9 +5,9 @@ update_p11 = function(p1,p2,r){
   (-b+sqrt(b^2-4*a*c))/(2*a)
 }
 
-prevalance_brfss_census = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Analysis/data_created/combined_updated.rds")
+prevalance_brfss_census = readRDS('/data_created/combined_updated.rds')
 
-nhis_data = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Analysis/data_created/nhis_2017.rds")
+nhis_data = readRDS('/data_created/nhis_2017.rds')
 
 nhis_data  = nhis_data[,c(5:6, 9:24)]
 
@@ -38,10 +38,10 @@ c1 = prevalance_of_male_given_age_greater_than_40 = p11/p2
 prevalance_of_male_given_age_less_than_40 = p1/(1-p2) - (c1*p2/(1-p2))
 
 #----Age-Diabetes---#
-hbAc1_level = sasxport.get("~/Dropbox/NHANES_risk_score/500cities_data/data/NHANES_Asthma_Diabetes/GHB_J.xpt")
-demo = sasxport.get("~/Dropbox/NHANES_risk_score/500cities_data/data/NHANES_Asthma_Diabetes/DEMO_J.xpt")
+hbAc1_level = sasxport.get('/data/NHANES_Asthma_Diabetes/GHB_J.xpt')
+demo = sasxport.get('/data/NHANES_Asthma_Diabetes/DEMO_J.xpt')
 demo_sampling_weights = demo[, c(1,5,41)]
-diabetes_questionnaire = sasxport.get("~/Dropbox/NHANES_risk_score/500cities_data/data/NHANES_Asthma_Diabetes/DIQ_J.xpt")
+diabetes_questionnaire = sasxport.get('/data/NHANES_Asthma_Diabetes/DIQ_J.xpt')
 data = merge(merge(hbAc1_level, demo_sampling_weights, by = "seqn"), diabetes_questionnaire, by = "seqn")
 data_diabetes = data[, c(2,3,4,5)]
 data_diabetes_greater_18 = data_diabetes[which(data_diabetes$ridageyr>=18), ]
@@ -462,4 +462,4 @@ prevalance_of_kidney_diseaseYes_given_age_less_than_40)
 colnames(prevalance_age_stratification)[1:8] = c("StateAbbr", "PlaceName", "PlaceFIPS", "Geographic.Area.Name", "Geolocation", "lat",
                                                  "lon",
                                                  "county")
-saveRDS(prevalance_age_stratification, "~/Dropbox/NHANES_risk_score/500cities_data/Analysis/data_created/prevalance_age_stratification.rds")
+saveRDS(prevalance_age_stratification, '/data_created/prevalance_age_stratification.rds')
