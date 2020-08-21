@@ -35,13 +35,13 @@ This folder contains the raw data downloaded from various publicly accessible si
       This folder contains data for mapping counties and cities.
       
       
-> `NHANES_Diabetes`
+> `NHANES_Asthma_Diabetes`
 
       This folder is required to categorize diabetes prevalences into controlled and uncontrolled group.
       
 #### data_processing
 
-    Mapping_cities_county and merge_city_data: code for processing the downloaded raw data, and merging city- and county-level data.
+    Mapping_cities_county and merge_city_data`: code for merging city- and county-level data.
 
 #### data_created
 
@@ -69,8 +69,8 @@ This folder contains the raw data downloaded from various publicly accessible si
 
 ## Authors
 * Jin Jin, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
-* Neha Agarwala, Department of Mathematics and Statistics, University of Maryland, Baltimore County
 * Prosenjit Kundu, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
+* Neha Agarwala, Department of Mathematics and Statistics, University of Maryland, Baltimore County
 * [Nilanjan Chatterjee](https://nilanjanchatterjee.org/), Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
  
 
