@@ -37,25 +37,26 @@ census_17_age_sex = census_17_age_sex %>% mutate(PlaceFIPS = str_sub(census_17_a
 saveRDS(census_17_age_sex, file = 'data/census_age_sex.rds')
 
 #--Race
-census_18_race = read.csv('data/Census/RACE_ETHNICITY_2018/ACSDT1Y2018.C03002_data_with_overlays_2020-05-10T211828.csv', skip = 1, header = T)
+census_18_race = read.csv("~/Dropbox/NHANES_risk_score/500cities_data/data/Census/RACE_ETHNICITY_2018/ACSDT1Y2018.C03002_data_with_overlays_2020-05-10T211828.csv", skip = 1, header = T)
 required_columns = c(1,2,3,7,9,11,13,15,17,19,25)
 census_18_race = census_18_race[, required_columns]
-census_18_race = census_18_race[-which(census_18_race$Estimate..Total == "null"),]
 
-total_est =  rowSums(cbind(as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..White.alone), as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Black.or.African.American.alone),as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Asian.alone), as.numeric(census_18_race$Estimate..Total..Hispanic.or.Latino)), na.rm=TRUE)
+census_18_race = census_18_race %>% mutate(proportion_white = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..White.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_black = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Black.or.African.American.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_asian = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Asian.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_mixed = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Two.or.more.races)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_american_indian_alaska_native = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..American.Indian.and.Alaska.Native.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_native_hawaiian_other_pacific_islander = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Native.Hawaiian.and.Other.Pacific.Islander.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_others = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Some.other.race.alone)/as.numeric(census_18_race$Estimate..Total),
+                                           proportion_hispanic = as.numeric(census_18_race$Estimate..Total..Hispanic.or.Latino)/as.numeric(census_18_race$Estimate..Total))
 
-total_non_hispanic_white_asian = rowSums(cbind(as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..White.alone), as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Asian.alone)), na.rm = T)
-
-census_18_race = census_18_race %>% mutate(proportion_non_hispanic_white_asian = total_non_hispanic_white_asian/total_est,
-                                           proportion_black = as.numeric(census_18_race$Estimate..Total..Not.Hispanic.or.Latino..Black.or.African.American.alone)/total_est,
-                                           proportion_hispanic = as.numeric(census_18_race$Estimate..Total..Hispanic.or.Latino)/total_est)
-
-census_18_race = census_18_race[, c(1,2,12:14)]
+census_18_race = census_18_race[, c(1,2,12:19)]
 census_18_race = census_18_race %>% mutate(PlaceFIPS = str_sub(census_18_race$id, -7,-1))
-saveRDS(census_18_race, file = '/data/census_18_race.rds')
+saveRDS(census_18_race, file = "~/Dropbox/NHANES_risk_score/500cities_data/data/census_18_race.rds")
+
 
 #-----Cancer Data
-cancer_data = fread("data/Cancer/USCS-1999-2016-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
+cancer_data = fread("data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
   filter(RACE == "All Races", SEX == "Male and Female") %>%
   mutate(State_county_fips = substring( unlist(str_extract_all(AREA, "\\([^()]+\\)")), 2, nchar( unlist(str_extract_all(AREA, "\\([^()]+\\)")))-1)) %>%
   filter(POPULATION != 0) %>%
@@ -65,13 +66,13 @@ cancer_data$COUNT = gsub("~", NA, cancer_data$COUNT)
 
 cancer_data = cancer_data %>% select(COUNT, POPULATION, SITE) %>%
   group_by(SITE) %>% summarise(incidence = sum(as.numeric(COUNT), na.rm = T)/sum(as.numeric(POPULATION), na.rm = T))
-survival_rate_5_years = read.csv('data/Cancer/USCS_SurvivalAllCancers.csv', header = T) %>%
+survival_rate_5_years = read.csv('data/Cancer/USCS_SurvivalAllCancers_latest.csv', header = T) %>%
   select(CancerType, X5.yearRelativeSurvival.) %>%
   mutate(survival_5_year_rate = as.numeric(gsub("'","",X5.yearRelativeSurvival.))/100) %>%
   mutate(SITE = gsub("'","",CancerType)) %>%
   select(SITE, survival_5_year_rate)
-survival_rate_5_years$SITE[21] = c("Corpus and Uterus, NOS")
-survival_rate_5_years = survival_rate_5_years[-22,]
+survival_rate_5_years$SITE[20] = c("Corpus and Uterus, NOS")
+survival_rate_5_years = survival_rate_5_years[-21,]
 incidence_survival = merge(cancer_data, survival_rate_5_years, by = "SITE", all= T)
 
 total = sum(incidence_survival$incidence[c(7,11,18,19)])
@@ -82,11 +83,11 @@ survival_1year_hemo = survival_5year_hemo/5
 survival_1year_nonhemo = survival_5year_nonhemo/5
 
 
-cancer_data = fread("data/Cancer/USCS-1999-2016-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
+cancer_data = fread("data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
   filter(RACE == "All Races", SEX == "Male and Female") %>%
   mutate(State_county_fips = substring( unlist(str_extract_all(AREA, "\\([^()]+\\)")), 2, nchar( unlist(str_extract_all(AREA, "\\([^()]+\\)")))-1)) %>%
   filter(POPULATION != 0) %>%
-  select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE) 
+  select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE)
 cancer_data$COUNT = gsub("~", NA, cancer_data$COUNT)
 #cancer_data = cancer_data[which(cancer_data$SITE!= "All Cancer Sites Combined"), ]
 
@@ -102,7 +103,7 @@ hemato_cancer = function(x)
 }
 cancer_data = cancer_data %>% mutate(cancer_type = sapply(cancer_data$SITE, hemato_cancer))
 cancer_data = cancer_data[which(cancer_data$cancer_type == "hematologic_cancer" | cancer_data$cancer_type == "All Cancer Sites Combined"), ]
-cancer_data = cancer_data %>% group_by(State_county_fips,cancer_type, EVENT_TYPE) %>% mutate(COUNT = sum(as.numeric(COUNT), na.rm = T)) %>% 
+cancer_data = cancer_data %>% group_by(State_county_fips,cancer_type, EVENT_TYPE) %>% mutate(COUNT = sum(as.numeric(COUNT), na.rm = T)) %>%
   select(State_county_fips, COUNT, POPULATION, cancer_type, EVENT_TYPE) %>% distinct() %>% filter(POPULATION != 0)
 cancer_data$COUNT[which(cancer_data$COUNT == 0)] = NA
 
@@ -144,7 +145,7 @@ cancer_data = cancer_data[which(cancer_data$EVENT_TYPE == "Incidence"), ]
 cancer_data = cancer_data %>% mutate(hemo_one_yr_survival = survival_1year_hemo, nonhemo_one_yr_survival = survival_1year_nonhemo)
 cancer_data = cancer_data %>% mutate(hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, hemo_cat2 = 8*hematologic_cancer*hemo_one_yr_survival, hemo_cat3 = 15* 7.5* hematologic_cancer*hemo_one_yr_survival, hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, non_hemo_cat1 = non_hematologic_cancer*nonhemo_one_yr_survival/2, non_hemo_cat2 = 8*non_hematologic_cancer*nonhemo_one_yr_survival, non_hemo_cat3 = 15* 7.5* non_hematologic_cancer*nonhemo_one_yr_survival)
 cancer_data = cancer_data %>% ungroup() %>% select(State_county_fips, hemo_cat1, hemo_cat2, hemo_cat3, non_hemo_cat1, non_hemo_cat2, non_hemo_cat3)
-saveRDS(cancer_data,'data_created/cancer_2016.rds')
+saveRDS(cancer_data,'data_created/cancer_2017.rds')
 
 # non_hemato_cancer_incidence = cancer_data[which(cancer_data$cancer_type == "non_hematologic_cancer"), ]
 # hemato_cancer_incidence = cancer_data[which(cancer_data$cancer_type == "hematologic_cancer"), ]
@@ -173,10 +174,10 @@ saveRDS(cancer_data,'data_created/cancer_2016.rds')
 
 #-----NHANES----#
 #Diabetes
-hbAc1_level = sasxport.get('data/NHANES_Asthma_Diabetes/GHB_J.xpt')
-demo = sasxport.get('data/NHANES_Asthma_Diabetes/DEMO_J.xpt')
+hbAc1_level = sasxport.get('data/NHANES_Diabetes/GHB_J.xpt')
+demo = sasxport.get('data/NHANES_Diabetes/DEMO_J.xpt')
 demo_sampling_weights = demo[which(demo$ridreth3 != 7 & demo$ridageyr>=18), c(1,5,8,41)]
-diabetes_questionnaire = sasxport.get('data/NHANES_Asthma_Diabetes/DIQ_J.xpt')
+diabetes_questionnaire = sasxport.get('data/NHANES_Diabetes/DIQ_J.xpt')
 seqno_diabetes_yes = diabetes_questionnaire$seqn[which(diabetes_questionnaire$diq010 == 1)]
 hbAc1_level_diabetes_yes = hbAc1_level[which(hbAc1_level$seqn %in% intersect(seqno_diabetes_yes, hbAc1_level$seqn) == T), ]
 sampling_weights = demo_sampling_weights[which(demo_sampling_weights$seqn %in% intersect(seqno_diabetes_yes, hbAc1_level$seqn) == T), ]
@@ -186,15 +187,19 @@ count_uncontrolled_diabetes = sum(hbAc1_level_diabetes_yes_sampling_weighs$wtmec
 ratio_uncontrolled_to_controlled = count_uncontrolled_diabetes/count_controlled_diabetes
 # ratio_uncontrolled_to_controlled = 0.6133612
 
-#Asthma
-asthma = sasxport.get('data/NHANES_Asthma_Diabetes/MCQ_J.xpt')
-asthma = asthma[which(asthma$mcq010 == 1), c(1,2)]
-demo_sampling_weights = demo[, c(1,40)]
-drug_prescription = sasxport.get('data/NHANES_Asthma_Diabetes/RXQ_DRUG.xpt')
-drug_medicine = sasxport.get('data/NHANES_Asthma_Diabetes/RXQ_RX_I_2015_2016.XPT')
 
-drug_code_OCS = c("d00760", "d00761", "d01296", "d04276", "d04611", "d04795", "d05262", "d05465", "d07660", "d08100", "d08666")
-
+#Arthritis
+arthritis = sasxport.get('data/NHANES_Diabetes/MCQ_J.xpt')
+#mcq195, mcq160a
+arthritis = arthritis %>% select(seqn, mcq160a, mcq195)
+arthritis_yes = arthritis[which(arthritis$mcq160a == 1), ]
+demo = sasxport.get('data/NHANES_Diabetes/DEMO_J.xpt')
+demo_sampling_weights = demo[which(demo$ridreth3 != 7 & demo$ridageyr>=18), c(1,5,8,40)]
+join_data = inner_join(demo_sampling_weights, arthritis_yes, by = "seqn")
+join_data = join_data %>% filter(mcq195 !=7) %>% filter(mcq195 !=9)
+rheumatoid = sum(join_data$wtint2yr[which(join_data$mcq195 == 2 |join_data$mcq195 == 3 )])
+non_rheumatoid = sum(join_data$wtint2yr[which(join_data$mcq195 == 1 |join_data$mcq195 == 4 )])
+# ratio_rheumatoid_to_non_rheumatoid =  0.269098
 
 #----NHIS----#
 ascii_link = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/NHIS/2017/samadult.zip"
