@@ -69,8 +69,8 @@ This folder contains the raw data downloaded from various publicly accessible si
 
 ## Authors
 * Jin Jin, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
-* Prosenjit Kundu, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
 * Neha Agarwala, Department of Mathematics and Statistics, University of Maryland, Baltimore County
+* Prosenjit Kundu, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
 * [Nilanjan Chatterjee](https://nilanjanchatterjee.org/), Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health
  
 
