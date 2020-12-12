@@ -7,13 +7,12 @@ download.file("http://download.geonames.org/export/zip/US.zip",temp)
 con <- unz(temp, "US.txt")
 US <- read.delim(con, header=FALSE)
 unlink(temp)
-
 colnames(US)[c(3,5,6)] <- c("city","state","county")
 US$city <- tolower(US$city)
 colnames(US)[c(10,11)] = c('lat','lon')
 
 # ------------------------- merge city ID with county ID & SDI data -------------------------
-rawSDI=read.xlsx('data_create/SDI_quintile.xlsx')
+rawSDI=read.xlsx('data_created/SDI_quintile.xlsx')
 brfss = readRDS("data_created/BRFSS.rds")
 cityloc = t(sapply(1:nrow(brfss),function(x){as.numeric(c(substr(strsplit(brfss$Geolocation[x],',')[[1]][1],2,11),substr(strsplit(brfss$Geolocation[x],',')[[1]][2],1,11)))}))
 brfss$lat = as.numeric(cityloc[,1])
@@ -185,6 +184,7 @@ saveRDS(brfss,file='data_created/brfss_sdi.rds')
 sdi_city = readRDS('data_created/brfss_sdi.rds')
 # ---- updated 071020:
 cancer = readRDS('data_created/cancer_2017.rds')
+cancer[84,2:4] = 0
 colnames(cancer)[1] = 'county'
 kansas_counties = unique(sdi_city[sdi_city$StateAbbr == 'KS','county'])
 minnesota_counties = unique(sdi_city[sdi_city$StateAbbr == 'MN','county'])
@@ -299,6 +299,11 @@ combined = combined %>% inner_join(race, by = 'PlaceFIPS')
 sum(complete.cases(combined))
 combined = combined[complete.cases(combined),]
 
+
+saveRDS(combined,file='data_created/combined_raw.rds')
+
+
+
 # update diabetes subcategories
 ratio.unctrl.ctrl = 0.6133612
 pr.unctrl = ratio.unctrl.ctrl/(1+ratio.unctrl.ctrl)
@@ -341,9 +346,11 @@ combined[,c('OBESITY_CrudePrev','BPHIGH_CrudePrev','COPD_CrudePrev','CASTHMA_Cru
 ratio.rheumatoid.arthritis = 0.269098/(1+0.269098)
 combined$rheumatoid = combined$ARTHRITIS_CrudePrev * ratio.rheumatoid.arthritis
 
-# output: city-level data
+combined = readRDS('data_created/combined_updated.rds')
+combined$totalethnic = combined$proportion_hispanic+combined$proportion_asian+combined$proportion_american_indian_alaska_native+combined$proportion_black+combined$proportion_white
+combined$proportion_white = combined$proportion_white/combined$totalethnic
+combined$proportion_hispanic = combined$proportion_hispanic/combined$totalethnic
+combined$proportion_black = combined$proportion_black/combined$totalethnic
+combined$proportion_asian = combined$proportion_asian/combined$totalethnic
+combined$proportion_american_indian_alaska_native = combined$proportion_american_indian_alaska_native/combined$totalethnic
 saveRDS(combined,file='data_created/combined_updated.rds')
-
-
-
-
