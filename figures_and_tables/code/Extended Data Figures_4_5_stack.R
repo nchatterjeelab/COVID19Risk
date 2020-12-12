@@ -10,7 +10,7 @@ library(tools)
 
 #--------------- Load the NHIS individual level data  ---------------------
 # use the relevant path for the data
-individual_rs_covariates = readRDS('/Users/prosenjitkundu/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/data_created/individual_rs_covariates.rds')
+individual_rs_covariates = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/individual_rs_covariates.rds')
 individual_rs_covariates = individual_rs_covariates %>% filter(age >= 65)
 
 # ---- mean risk from NHIS data
@@ -182,7 +182,7 @@ p16 = ggplot(data=df3,aes(x=Var2,y=percent,fill=Var1)) +
 
 
 supp_fig4_medicare_stack = ggarrange(p1,p5,p3,p4,p15,p16,ncol=2,nrow=3)
-ggsave('~/Dropbox/NHANES_risk_score/Nature/Extended Data/Extended_Data_Figure_4_stack.png', supp_fig4_medicare_stack, width = 17,height=11, dpi = 300)
+#ggsave('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Extended Data/Extended_Data_Figure_4_stack.png', supp_fig4_medicare_stack, width = 17,height=11, dpi = 300)
 
 #### Sex
 df1 = as.data.frame(wtd.table(x = df$sex,y=df$Id, weights = df$sampling_weights))
@@ -370,4 +370,4 @@ p13 = ggplot(data=df2,aes(x=Var2,y=percent,fill=Var1)) +
         legend.text=element_text(colour="black", size=14,face="bold"), legend.background=element_blank())
 
 supp_fig5_medicare_stack = ggarrange(p2,p6,p7,p8,p9,p10,p11,p12,p13,ncol=3,nrow=3)
-ggsave('~/Dropbox/NHANES_risk_score/Nature/Extended Data/Extended_Data_Figure_5_stack.png', supp_fig5_medicare_stack, width = 17,height=11, dpi = 300)
+#ggsave('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Extended Data/Extended_Data_Figure_5_stack.png', supp_fig5_medicare_stack, width = 17,height=11, dpi = 300)

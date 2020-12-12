@@ -10,11 +10,12 @@ library(tools)
 
 #--------------- Load the NHIS individual level data  ---------------------
 # use the relevant path for the data
-individual_rs_covariates = readRDS('/Users/prosenjitkundu/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/data_created/individual_rs_covariates.rds')
+individual_rs_covariates = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/individual_rs_covariates.rds')
 
 
 # ---- mean risk from NHIS data
 mean_risk = weighted.mean(x = exp(individual_rs_covariates$rs_est), w = individual_rs_covariates$sampling_weights)
+# mean_risk 2.943663
 individual_rs_covariates_2fold = subset(individual_rs_covariates,exp(rs_est)>2*mean_risk)
 individual_rs_covariates_5fold = subset(individual_rs_covariates,exp(rs_est)>5*mean_risk)
 individual_rs_covariates_10fold = subset(individual_rs_covariates,exp(rs_est)>10*mean_risk)
@@ -181,7 +182,7 @@ p16 = ggplot(data=df3,aes(x=Var2,y=percent,fill=Var1)) +
 
 
 supp_fig2_medicare_stack = ggarrange(p1,p5,p3,p4,p15,p16,ncol=2,nrow=3)
-ggsave('~/Dropbox/NHANES_risk_score/Nature/Extended Data/Extended_Data_Figure_2_stack.png', supp_fig2_medicare_stack, width = 17,height=11, dpi = 300)
+#ggsave('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Extended Data/Extended_Data_Figure_2_stack.png', supp_fig2_medicare_stack, width = 17,height=11, dpi = 300)
 
 
 
@@ -371,4 +372,4 @@ p13 = ggplot(data=df2,aes(x=Var2,y=percent,fill=Var1)) +
         legend.text=element_text(colour="black", size=14,face="bold"), legend.background=element_blank())
 
 supp_fig3_medicare_stack = ggarrange(p2,p6,p7,p8,p9,p10,p11,p12,p13,ncol=3,nrow=3)
-ggsave('~/Dropbox/NHANES_risk_score/Nature/Extended Data/Extended_Data_Figure_3_stack.png', supp_fig3_medicare_stack, width = 17,height=11, dpi = 300)
+#ggsave('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Extended Data/Extended_Data_Figure_3_stack.png', supp_fig3_medicare_stack, width = 17,height=11, dpi = 300)
