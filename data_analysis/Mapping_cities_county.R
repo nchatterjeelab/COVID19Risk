@@ -56,21 +56,21 @@ saveRDS(census_18_race, file = "~/Dropbox/NHANES_risk_score/500cities_data/data/
 
 
 #-----Cancer Data
-cancer_data = fread("data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
+cancer_data = fread("~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
   filter(RACE == "All Races", SEX == "Male and Female") %>%
   mutate(State_county_fips = substring( unlist(str_extract_all(AREA, "\\([^()]+\\)")), 2, nchar( unlist(str_extract_all(AREA, "\\([^()]+\\)")))-1)) %>%
   filter(POPULATION != 0) %>%
-  select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE) %>%
+dplyr::select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE) %>%
   filter(EVENT_TYPE == "Incidence")
 cancer_data$COUNT = gsub("~", NA, cancer_data$COUNT)
 
-cancer_data = cancer_data %>% select(COUNT, POPULATION, SITE) %>%
+cancer_data = cancer_data %>% dplyr::select(COUNT, POPULATION, SITE) %>%
   group_by(SITE) %>% summarise(incidence = sum(as.numeric(COUNT), na.rm = T)/sum(as.numeric(POPULATION), na.rm = T))
-survival_rate_5_years = read.csv('data/Cancer/USCS_SurvivalAllCancers_latest.csv', header = T) %>%
-  select(CancerType, X5.yearRelativeSurvival.) %>%
+survival_rate_5_years = read.csv('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data/Cancer/USCS_SurvivalAllCancers_latest.csv', header = T) %>%
+dplyr::select(CancerType, X5.yearRelativeSurvival.) %>%
   mutate(survival_5_year_rate = as.numeric(gsub("'","",X5.yearRelativeSurvival.))/100) %>%
   mutate(SITE = gsub("'","",CancerType)) %>%
-  select(SITE, survival_5_year_rate)
+dplyr::select(SITE, survival_5_year_rate)
 survival_rate_5_years$SITE[20] = c("Corpus and Uterus, NOS")
 survival_rate_5_years = survival_rate_5_years[-21,]
 incidence_survival = merge(cancer_data, survival_rate_5_years, by = "SITE", all= T)
@@ -79,15 +79,16 @@ total = sum(incidence_survival$incidence[c(7,11,18,19)])
 survival_5year_hemo = sum(incidence_survival$incidence[c(7,11,18,19)]*incidence_survival$survival_5_year_rate[c(7,11,18,19)])/total
 relative_incidence_hemo = sum(incidence_survival$incidence[c(7,11,18,19)])/incidence_survival$incidence[1]
 survival_5year_nonhemo = (incidence_survival$survival_5_year_rate[1] - relative_incidence_hemo*survival_5year_hemo)/(1 - relative_incidence_hemo)
-survival_1year_hemo = survival_5year_hemo/5
-survival_1year_nonhemo = survival_5year_nonhemo/5
+death_rate_1year_nonhemo = (1 - survival_5year_nonhemo)/5
+death_rate_1year_hemo = (1 - survival_5year_hemo)/5
 
 
-cancer_data = fread("data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
+
+cancer_data = fread("~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data/Cancer/USCS-1999-2017-ASCII/BYAREA_COUNTY.TXT", header = T) %>%
   filter(RACE == "All Races", SEX == "Male and Female") %>%
   mutate(State_county_fips = substring( unlist(str_extract_all(AREA, "\\([^()]+\\)")), 2, nchar( unlist(str_extract_all(AREA, "\\([^()]+\\)")))-1)) %>%
   filter(POPULATION != 0) %>%
-  select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE)
+dplyr::select(State_county_fips, COUNT, POPULATION, SITE, EVENT_TYPE)
 cancer_data$COUNT = gsub("~", NA, cancer_data$COUNT)
 #cancer_data = cancer_data[which(cancer_data$SITE!= "All Cancer Sites Combined"), ]
 
@@ -104,7 +105,7 @@ hemato_cancer = function(x)
 cancer_data = cancer_data %>% mutate(cancer_type = sapply(cancer_data$SITE, hemato_cancer))
 cancer_data = cancer_data[which(cancer_data$cancer_type == "hematologic_cancer" | cancer_data$cancer_type == "All Cancer Sites Combined"), ]
 cancer_data = cancer_data %>% group_by(State_county_fips,cancer_type, EVENT_TYPE) %>% mutate(COUNT = sum(as.numeric(COUNT), na.rm = T)) %>%
-  select(State_county_fips, COUNT, POPULATION, cancer_type, EVENT_TYPE) %>% distinct() %>% filter(POPULATION != 0)
+dplyr::select(State_county_fips, COUNT, POPULATION, cancer_type, EVENT_TYPE) %>% distinct() %>% filter(POPULATION != 0)
 cancer_data$COUNT[which(cancer_data$COUNT == 0)] = NA
 
 non_hematologic_cancer_incidence = rep(NA, 3044)
@@ -139,13 +140,13 @@ odd_numbers = seq(2,12176,4)
 cancer_data$COUNT[odd_numbers] = non_hematologic_cancer_mortality
 cancer_data$cancer_type[which(cancer_data$cancer_type == "All Cancer Sites Combined")] = "non_hematologic_cancer"
 cancer_data = cancer_data %>% mutate(proportion = COUNT/POPULATION, annual_proportion = proportion/5)
-cancer_data = cancer_data %>% select(State_county_fips, cancer_type, EVENT_TYPE, annual_proportion)
+cancer_data = cancer_data %>% dplyr::select(State_county_fips, cancer_type, EVENT_TYPE, annual_proportion)
 cancer_data = spread(cancer_data, cancer_type, annual_proportion)
 cancer_data = cancer_data[which(cancer_data$EVENT_TYPE == "Incidence"), ]
 cancer_data = cancer_data %>% mutate(hemo_one_yr_survival = survival_1year_hemo, nonhemo_one_yr_survival = survival_1year_nonhemo)
-cancer_data = cancer_data %>% mutate(hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, hemo_cat2 = 8*hematologic_cancer*hemo_one_yr_survival, hemo_cat3 = 15* 7.5* hematologic_cancer*hemo_one_yr_survival, hemo_cat1 = hematologic_cancer*hemo_one_yr_survival/2, non_hemo_cat1 = non_hematologic_cancer*nonhemo_one_yr_survival/2, non_hemo_cat2 = 8*non_hematologic_cancer*nonhemo_one_yr_survival, non_hemo_cat3 = 15* 7.5* non_hematologic_cancer*nonhemo_one_yr_survival)
-cancer_data = cancer_data %>% ungroup() %>% select(State_county_fips, hemo_cat1, hemo_cat2, hemo_cat3, non_hemo_cat1, non_hemo_cat2, non_hemo_cat3)
-saveRDS(cancer_data,'data_created/cancer_2017.rds')
+cancer_data = cancer_data %>% mutate(hemo_cat1 = hematologic_cancer*(1-death_rate_1year_hemo/2), hemo_cat2 = 4*hematologic_cancer*(1-2*death_rate_1year_hemo), hemo_cat3 = 15* hematologic_cancer* (1-7.5*death_rate_1year_hemo), non_hemo_cat1 = non_hematologic_cancer*(1-death_rate_1year_nonhemo/2), non_hemo_cat2 = 4*non_hematologic_cancer*(1-2*death_rate_1year_nonhemo), non_hemo_cat3 = 15* non_hematologic_cancer* (1-7.5*death_rate_1year_nonhemo))
+cancer_data = cancer_data %>% ungroup() %>% dplyr::select(State_county_fips, hemo_cat1, hemo_cat2, hemo_cat3, non_hemo_cat1, non_hemo_cat2, non_hemo_cat3)
+saveRDS(cancer_data,'~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/cancer_2017.rds')
 
 # non_hemato_cancer_incidence = cancer_data[which(cancer_data$cancer_type == "non_hematologic_cancer"), ]
 # hemato_cancer_incidence = cancer_data[which(cancer_data$cancer_type == "hematologic_cancer"), ]
@@ -202,6 +203,7 @@ non_rheumatoid = sum(join_data$wtint2yr[which(join_data$mcq195 == 1 |join_data$m
 # ratio_rheumatoid_to_non_rheumatoid =  0.269098
 
 #----NHIS----#
+options(encoding = "windows-1252")
 ascii_link = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/NHIS/2017/samadult.zip"
 program_code = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Program_Code/NHIS/2017/SAMADULT.sas"
 NHIS.17.samadult.df  = read.SAScii (ascii_link , program_code , zipped = T )
@@ -223,26 +225,34 @@ asthma_var = c("AASMEV", "AASSTILL")
 kidney_var = "KIDWKYR"
 nhis_2017_data = NHIS.17.samadult.df[, c(1,2,3,6,7,8,9,which(colnames(NHIS.17.samadult.df) %in% c(gender_var, race_var, age_var, bmi_var, smoking_var, cancer_var, age_cancer_var, diabetes_var, liver_codition_var, bp_var, stroke_var, heart_var, rheumatoid_var, resp_ex_asthma_var, asthma_var, kidney_var) == T))]
 
+additional_weights = NHIS.17.samadult.df[,c(11,12)]
+
 #---- Male = 1, Female = 0 (2 = Female coded in NHIS)---#
 nhis_2017_data$SEX[nhis_2017_data$SEX == 2] = "Female"
 nhis_2017_data$SEX[nhis_2017_data$SEX == 1] = "Male"
 
 nhis_2017_data = nhis_2017_data %>% mutate(agegroup = case_when(AGE_P >= 18  & AGE_P < 40 ~ '18_40',
-                                                                 AGE_P >= 40  & AGE_P < 50 ~ '40_50',
-                                                                 AGE_P >= 50  & AGE_P < 60 ~ '50_60',
-                                                                 AGE_P >= 60  & AGE_P < 70 ~ '60_70',
-                                                                 AGE_P >= 70  & AGE_P < 80 ~ '70_80',
-                                                                 AGE_P >= 80  & AGE_P < 100 ~ '80_and_above'))
+                                                                AGE_P >= 40  & AGE_P < 50 ~ '40_50',
+                                                                AGE_P >= 50  & AGE_P < 60 ~ '50_60',
+                                                                AGE_P >= 60  & AGE_P < 70 ~ '60_70',
+                                                                AGE_P >= 70  & AGE_P < 80 ~ '70_80',
+                                                                AGE_P >= 80  & AGE_P < 100 ~ '80_and_above'))
+nhis_2017_data = nhis_2017_data %>% mutate(agegroup.cdc = case_when(AGE_P >= 15  & AGE_P < 45 ~ '15_45',
+                                                                    AGE_P >= 45  & AGE_P < 55 ~ '45_54',
+                                                                    AGE_P >= 55  & AGE_P < 65 ~ '55_64',
+                                                                    AGE_P >= 65  & AGE_P < 75 ~ '65_74',
+                                                                    AGE_P >= 75  & AGE_P < 85 ~ '75_84',
+                                                                    AGE_P >= 85  & AGE_P < 100 ~ '85+'))
 nhis_2017_data = nhis_2017_data %>% mutate(diabetes = case_when(DIBEV1 == 1 ~ 'Yes',
                                                                 DIBEV1 == 2 | DIBEV1 == 3 ~ 'No',
                                                                 DIBEV1 > 3 ~ 'NA'))
 nhis_2017_data = nhis_2017_data %>% mutate(smoking_status = case_when(SMKSTAT2 == 3 ~ 'Former',
-                                                                SMKSTAT2 == 1 | SMKSTAT2 == 2 ~ 'Current',
-                                                                SMKSTAT2 == 4 ~ 'Never',
-                                                                SMKSTAT2 > 4 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(rhemumatoid = case_when(ARTH1 == 1 ~ 'Yes',
-                                                                   ARTH1 == 2 ~ 'No',
-                                                                   ARTH1 > 2 ~ 'NA'))
+                                                                      SMKSTAT2 == 1 | SMKSTAT2 == 2 ~ 'Current',
+                                                                      SMKSTAT2 == 4 ~ 'Never',
+                                                                      SMKSTAT2 > 4 ~ 'NA'))
+nhis_2017_data = nhis_2017_data %>% mutate(rheumatoid = case_when(ARTH1 == 1 ~ 'Yes',
+                                                                  ARTH1 == 2 ~ 'No',
+                                                                  ARTH1 > 2 ~ 'NA'))
 nhis_2017_data = nhis_2017_data %>% mutate(asthma = case_when(AASSTILL == 1 & AASMEV == 1 ~ 'Yes',
                                                               AASSTILL == 2 & AASMEV == 1 ~ 'No',
                                                               AASMEV  == 2 ~ 'No'))
@@ -273,16 +283,22 @@ nhis_2017_data = nhis_2017_data %>% mutate(liver_disease = case_when(LIVYR == 1 
                                                                      LIVYR == 2 ~ 'No'))
 nhis_2017_data = nhis_2017_data %>% mutate(id_created = seq(1, nrow(nhis_2017_data), 1))
 nhis_2017_data = nhis_2017_data %>% mutate(ethnicity = case_when(HISPAN_I < 10 ~ 'Hispanic',
-                                                                  HISPAN_I == 12 ~ 'Not_hispanic'))
+                                                                 HISPAN_I == 12 ~ 'Not_hispanic'))
 nhis_2017_data = nhis_2017_data %>% mutate(race = case_when(MRACBPI2 == 1 ~ 'White',
                                                             MRACBPI2 == 2 ~ 'Black',
                                                             MRACBPI2 == 6 |  MRACBPI2 == 7 |  MRACBPI2 == 12  ~ 'Asian',
                                                             MRACBPI2 == 3 |  MRACBPI2 == 16  ~ 'Others',
                                                             MRACBPI2 == 17 ~ 'Mixed'))
 
+nhis_2017_data = nhis_2017_data %>% mutate(race.cdc = case_when(MRACBPI2 == 1 ~ 'White',
+                                                                MRACBPI2 == 2 ~ 'Black',
+                                                                MRACBPI2 == 6 |  MRACBPI2 == 7 |  MRACBPI2 == 12  ~ 'Asian',
+                                                                MRACBPI2 == 3  ~ 'American_Indian',
+                                                                MRACBPI2 == 17 ~ 'More_than_one_race'))
+
 nhis_2017_data = nhis_2017_data %>% mutate(race_ethnicity = case_when(ethnicity == "Not_hispanic" & race == "White" ~ 'Non_hispanic_white',
                                                                       ethnicity == "Not_hispanic" & race == "Black" ~ 'Black',
-                                                                      ethnicity == "Not_hispanic" & race == "Asian" ~ 'Non_hispanic_white',
+                                                                      ethnicity == "Not_hispanic" & race == "Asian" ~ 'Asian',
                                                                       ethnicity == "Not_hispanic" & race == "Others"  ~ 'Others',
                                                                       ethnicity == "Not_hispanic" & race == "Mixed" ~ 'Mixed',
                                                                       ethnicity == "Hispanic" ~ 'Hispanic'))
@@ -307,12 +323,52 @@ nhis_2017_data = nhis_2017_data %>% mutate(diagnoses_cancer = case_when(age_diff
                                                                         age_diff >= 5 ~ 'greater_than_5_yr'))
 
 nhis_2017_data = nhis_2017_data %>% mutate(Obesity = case_when(BMI >= 30  & BMI < 35 ~ 'Obese_I',
-                                                          BMI >= 35  & BMI < 40 ~ 'Obese_II',
-                                                          BMI >= 40 ~ 'Obese_III',
-                                                          BMI < 30 ~ 'Not_obese'))
-nhis_2017_data = nhis_2017_data[, c(2:5,7,8,12, 99:105,110:114, 118:120, 123:124)]
+                                                               BMI >= 35  & BMI < 40 ~ 'Obese_II',
+                                                               BMI >= 40 ~ 'Obese_III',
+                                                               BMI < 30 ~ 'Not_obese'))
+
+
 nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "99"
 nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "99"
-colnames(nhis_2017_data)[5:7] = c("sampling_weights", "sex", "age")
-nhis_2017_data = nhis_2017_data[which(nhis_2017_data$race_ethnicity == "Non_hispanic_white" | nhis_2017_data$race_ethnicity == "Hispanic" | nhis_2017_data$race_ethnicity == "Black"),]
-saveRDS(nhis_2017_data, 'data_created/nhis_2017.rds')
+colnames(nhis_2017_data)[c(7:8, 12)] = c("sampling_weights", "sex", "age")
+
+
+
+
+# nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "None"
+# nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "None"
+
+nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "99"
+nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "99"
+
+#nhis_2017_data = nhis_2017_data %>% mutate(hematologic_cancer = case_when(hematologic_cancer == "None" ~ 0,
+#                                                                         hematologic_cancer == "Hematological" & age_diff < 1 ~ 1,
+#                                                                        hematologic_cancer == "Hematological" & age_diff >= 1 & age_diff < 5 ~ 2,
+#                                                                       hematologic_cancer == "Hematological" & age_diff >= 5 ~ 3))
+
+#nhis_2017_data = nhis_2017_data %>% mutate(non_hematologic_cancer = case_when(non_hematologic_cancer == "None" ~ 0,
+#                                                                               non_hematologic_cancer == "Non_hematological" & age_diff < 1 ~ 1,
+#                                                                              non_hematologic_cancer == "Non_hematological" & age_diff >= 1 & age_diff < 5 ~ 2,
+#                                                                             non_hematologic_cancer == "Non_hematological" & age_diff >= 5 ~ 3))
+
+nhis_2017_data$rheumatoid[which(nhis_2017_data$rheumatoid == "NA")] = NA
+nhis_2017_data$smoking_status[which(nhis_2017_data$smoking_status == "NA")] = NA
+nhis_2017_data$diabetes[which(nhis_2017_data$diabetes == "NA")] = NA
+nhis_2017_data$stroke[which(nhis_2017_data$stroke == "NA")] = NA
+
+nhis_2017_data = nhis_2017_data %>% mutate(race_ethnicity.cdc = case_when(ethnicity == "Not_hispanic" & race.cdc == "White" ~ 'Non_hispanic_white',
+                                                                          ethnicity == "Not_hispanic" & race.cdc == "Black" ~ 'Non_hispanic_Black',
+                                                                          ethnicity == "Not_hispanic" & race.cdc == "Asian" ~ 'Non_hispanic_asian',
+                                                                          ethnicity == "Not_hispanic" & race.cdc == "American_Indian"  ~ 'Non_hispanic_american_Indian',
+                                                                          ethnicity == "Not_hispanic" & race.cdc == "More_than_one_race" ~ 'Non_hispanic_more_than_one_race',
+                                                                          ethnicity == "Hispanic" ~ 'Hispanic'))
+
+
+nhis_2017_data = nhis_2017_data[, c(2:6,7,8,12, 99:115, 117:127)]
+nhis_2017_data = cbind(nhis_2017_data, additional_weights)
+saveRDS(nhis_2017_data, '/Users/prosenjitkundu/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/nhis_2017.rds')
+
+
+
+
+

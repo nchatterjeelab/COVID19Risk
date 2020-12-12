@@ -1,5 +1,5 @@
 library(dplyr)
-library(ggplot2)
+library(MASS)
 deaths = read.csv("data/CDC/Deaths_involving_coronavirus_disease_2019__COVID-19__by_race_and_Hispanic_origin_group_and_age__by_state.csv", header = T)
 population = read.csv("data/CDC/population_category_wise.csv")
 #Check US population is ~ 308 million in 2010
@@ -55,59 +55,19 @@ data_race$agegroup = relevel(data_race$agegroup, ref = "55-64")
 data_race$Race = relevel(data_race$Race, ref = "Non-Hispanic White")
 data_race$State = as.factor(data_race$State)
 data_race = data_race[-which(data_race$population==0), ]
-###               State agegroup                                                   Race population covid_deaths death.rate
-###1931       Vermont      85+ Non-Hispanic Native Hawaiian or Other Pacific Islander          0            0        NaN
-###2057 West Virginia      85+ Non-Hispanic Native Hawaiian or Other Pacific Islander          0            0        NaN
 
-### check 0 deaths race
-test_race = data_race %>% group_by(Race) %>% summarise(covid_deaths = sum(covid_deaths, na.rm = T)) %>% ungroup()
-
-## remove zero deaths race
-data_race = data_race[-which(data_race$Race=="Non-Hispanic Native Hawaiian or Other Pacific Islander"), ]
-
-#####---------- poisson model for race adjusted for age and state
+data_race = data_race %>% filter(Race != "Non-Hispanic More than one race") %>% filter(Race != "Non-Hispanic Native Hawaiian or Other Pacific Islander")
 race.model <- glm(covid_deaths~agegroup + Race + State,offset=log(population),family=poisson(link = "log"),data = data_race)
-summary(race.model)
 
-####----- poisson model for race adjusted for age and state with overdispersion ----#
-race.model.wdisp <- glm(covid_deaths~agegroup + Race + State,offset=log(population),family=quasipoisson(),data = data_race)
-summary(race.model.wdisp)
-Lower.CI = race.model.wdisp$coefficients[1:10] - 1.96*sqrt(diag(vcov(race.model.wdisp)))[1:10]
-Upper.CI = race.model.wdisp$coefficients[1:10] + 1.96*sqrt(diag(vcov(race.model.wdisp)))[1:10]
-table_CI = cbind(race.model.wdisp$coefficients[1:10], Lower.CI, Upper.CI)
-table_CI = round(exp(table_CI[7:10, ]),2)
+race.model.nb <- glm.nb(covid_deaths~agegroup + Race + State + offset(log(population)) ,data = data_race, maxit = 100)
 
-####-----create the plots= data for race
-deathrate_race_cdc = data.frame(race=c("Hispanic or Latino",
-                                       "Non-Hispanic American Indian or \n Alaska Native",
-                                       "Non-Hispanic Asian",
-                                       "Non-Hispanic White",
-                                       "Non-Hispanic Black",
-                                       "Non-Hispanic More than \n one race"),
-                                logRR=c(race.model$coefficients[7:9],0,race.model$coefficients[10:11]))
-rownames(deathrate_race_cdc) = NULL
 
-#deathrate_race_uk = data.frame(race=c("South Asian","Black","White"),
-#                               logRR=c(0.525,0.631,0))
+race_model_coefficients_comparision  = as.data.frame(cbind(race.model.nb$coefficients[1:10], race.model$coefficients[1:10]))
+colnames(race_model_coefficients_comparision) = c("Negative_binomial", "Poisson")
+#write.csv(race_model_coefficients_comparision,"~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Intermediate results/race_model_coefficients_comparision.csv")
 
-## remove south asian for UK
-deathrate_race_uk = data.frame(race=c("Black","White"),logRR=c(0.631,0))
 
-deathrate = bind_rows(deathrate_race_cdc,deathrate_race_uk,.id="id")
-deathrate$id = as.factor(deathrate$id)
-levels(deathrate$id) = c("US","UK")
-deathrate$race = as.factor(deathrate$race)
-deathrate = subset(deathrate,!deathrate$race %in% c("Non-Hispanic More than \n one race"))
-deathrate$race = ordered(deathrate$race,levels=c("Non-Hispanic Asian",
-                                                 "Black","Non-Hispanic Black",
-                                                 "White","Non-Hispanic White",
-                                                 "Hispanic or Latino",
-                                                 "Non-Hispanic American Indian or \n Alaska Native"))
-
-####-------save the race deathrate data for plot
-#saveRDS(deathrate,"~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/CDC_race_deathrate.rds")
-
-#####---------- poisson model for age adjusted for state
+#-----Age-model-------#
 deaths_age = deaths %>% group_by(State,agegroup) %>% summarise(covid_deaths = sum(COVID.19.Deaths, na.rm = T)) %>% ungroup()
 population_age = population %>% group_by(State, agegroup) %>% summarise(population = sum(POPESTIMATE2019)) %>% ungroup()
 data_age = merge(population_age, deaths_age, by = c("State", "agegroup"))
@@ -118,21 +78,14 @@ data_age$covid_deaths = as.numeric(data_age$covid_deaths)
 data_age$agegroup = as.factor(data_age$agegroup)
 data_age$agegroup = relevel(data_age$agegroup, ref = "55-64")
 data_age$State = as.factor(data_age$State)
+#data_age = data_age[-which(data_age$population==0), ]
 
 age.model <- glm(covid_deaths ~ agegroup + State,offset=log(population),family=poisson(link = "log"),data = data_age)
 summary(age.model)
+age.model.nb <- glm.nb(covid_deaths ~ agegroup + State + offset(log(population)), data = data_age, maxit=100)
+summary(age.model.nb)
 
-####-----create plot data for age
-deathrate_age_cdc = data.frame(age.group=c("15-44","45-54","55-64","65-74","75-84","85+"),
-                               logRR=c(age.model$coefficients[2:3],0,age.model$coefficients[4:6]))
-rownames(deathrate_age_cdc) = NULL
-
-deathrate_age_uk = data.frame(age.group=c("18-39","40-49","50-59","60-69","70-79","80+"),
-                              logRR=c(-2.996,-1.273,0,1.026,2.154,3.645))
-
-deathrate = bind_rows(deathrate_age_cdc,deathrate_age_uk,.id="id")
-deathrate$id = as.factor(deathrate$id)
-levels(deathrate$id) = c("US","UK")
-deathrate$age.group = as.factor(deathrate$age.group)
-deathrate$age.group = relevel(deathrate$age.group,"18-39")
+age_model_coefficients_comparision  = as.data.frame(cbind(age.model.nb$coefficients[1:6], age.model$coefficients[1:6]))
+colnames(age_model_coefficients_comparision) = c("Negative_binomial", "Poisson")
+#write.csv(age_model_coefficients_comparision,"~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Intermediate results/age_model_coefficients_comparision.csv")
 

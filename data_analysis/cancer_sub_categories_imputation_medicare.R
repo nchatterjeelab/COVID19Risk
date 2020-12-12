@@ -1,8 +1,8 @@
 library(dplyr)
 library(Hmisc)
 library(openxlsx)
-demo.data.age.sex.race = read.csv("~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/medicare_data/data/age_sex_race.csv")
 
+demo.data.age.sex.race = read.csv("data/Medicare/age_sex_race.csv")
 
 demo.data.age.sex.race.year2019 = demo.data.age.sex.race %>% filter(YEAR == 12)
 demo.data.age.sex.race.year2019$COUNTY[which(nchar(demo.data.age.sex.race.year2019$COUNTY) == 1)] = paste0("00", demo.data.age.sex.race.year2019$COUNTY[which(nchar(demo.data.age.sex.race.year2019$COUNTY) == 1)])
@@ -47,7 +47,8 @@ demo.data.age.prevalence.greater.65$county = as.character(demo.data.age.prevalen
 
 
 #CMS data
-data.cms = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/medicare_data/data/CMS_Medicare_Data_36_Groups_17_Cate_0711.rds")
+data.cms = readRDS("data/Medicare/CMS_Medicare_Data_36_Groups_17_Cate_0711.rds")
+
 data.cms.order = data.cms[order(data.cms$fips), ]
 data.cms = data.cms[, c(1,4,13,19,20,21,22)]
 colnames(data.cms)[2:3] = c("nonhemato.cancer", "hemato.cancer")
@@ -60,4 +61,4 @@ data.cms = data.cms %>% pivot_wider(names_from = c(Age, Sex, Race), values_from 
 #saveRDS(medicare.data.age.greater.65, file = "~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/medicare_data/data/medicare_data_combined_age_greater_65_sex_race.rds")
 
 medicare_cancer_imputed_data = inner_join(demo.data.age.prevalence.greater.65, data.cms, by=c("fips", "county"))
-saveRDS(medicare_cancer_imputed_data, file = "~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/medicare_data/data/medicare_cancer_imputed_data.rds")
+saveRDS(medicare_cancer_imputed_data, file = "data_created/Medicare/medicare_cancer_imputed_data.rds")

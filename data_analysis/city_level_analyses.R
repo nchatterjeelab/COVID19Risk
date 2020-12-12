@@ -1,6 +1,6 @@
 library(openxlsx)
 library(survey)
-library(ggpubr) # for gghistogram
+library(ggpubr) 
 library(gghighlight)
 library(ggExtra)
 library(ggplot2)
@@ -28,21 +28,8 @@ update_p11 = function(p1,p2,r,p10star,p01star){
 
 # ------------------------------ Calculate (log-scale) risk score for each city ------------------------------
 coeffs = read.xlsx('data_created/meta_model.xlsx', sheet = 'coefficients')
-# load data:
 coef_name = coeffs$Variable
 coef_name
-# [1] "Age_15_44"                 "Age_45_54"                 "Age_65_74"                
-# [4] "Age_75_84"                 "Age_85"                    "Sex_M"                    
-# [7] "BMI_obsese1"               "BMI_obsese2"               "BMI_obsese3"              
-# [10] "Smoking_ex"                "Smoking_current"           "Hispanic"                 
-# [13] "Black"                     "Asian"                     "Native_American"          
-# [16] "IMD2"                      "IMD3"                      "IMD4"                     
-# [19] "IMD5"                      "BP_high"                   "Respiratory_disease"      
-# [22] "Asthma"                    "CHD"                       "Diabetes_controlled"      
-# [25] "Diabetes_uncontrolled"     "Cancer_nonhaematological1" "Cancer_nonhaematological2"
-# [28] "Cancer_nonhaematological3" "Cancer_haematological1"    "Cancer_haematological2"   
-# [31] "Cancer_haematological3"    "Stroke"                    "Kidney"                   
-# [34] "Arthritis" 
 # --------------------------- load the city-level data ---------------------------
 dat = readRDS('data_created/combined_updated.rds')
 colnames(dat)
@@ -56,21 +43,16 @@ covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'KIDNEY_CrudePrev','rheumatoid')
 
 Covariate_matrix = as.matrix(dat[,covariates])
-# risk score (log scale):
 rs_est = Covariate_matrix %*% coeffs$estimate
-
 risk_score = cbind(dat[,c('StateAbbr','PlaceName','PlaceFIPS','population')],rs_est)
 full_output = cbind(dat[,c('StateAbbr','PlaceName','PlaceFIPS','population')],rs_est,dat[,5:ncol(dat)])
-
 saveRDS(risk_score,file='data_created/risk_score_cities.rds')
 write.xlsx(risk_score,file='data_created/risk_score_cities.xlsx')
 saveRDS(full_output,file='data_created/full_output_cities.rds')
 write.xlsx(full_output,file='data_created/full_output_cities.xlsx')
 
 
-
-
-# ----------------------- Calculate age-stratified (log-scale) risk score for each city -----------------------
+# ----------------------- Calculate age-stratified (log-scale) risk score -----------------------
 dat.pop = readRDS('data_created/combined_updated.rds')
 dat.pop = dat.pop[,c('PlaceFIPS','population')]
 # -----------------------------------------------------------------------------------------
@@ -107,7 +89,6 @@ Covariate_matrix = as.matrix(Covariate_matrix)
 rs_est = Covariate_matrix %*% matrix(coeffs$estimate,ncol=1)
 risk_score = cbind(dat[,c('StateAbbr','PlaceName','PlaceFIPS','population')],rs_est)
 full_output = cbind(dat[,c('StateAbbr','PlaceName','PlaceFIPS','population')],rs_est,Covariate_matrix)
-
 saveRDS(risk_score,file='data_created/risk_score_age_15_44.rds')
 write.xlsx(risk_score,file='data_created/risk_score_age_15_44.xlsx')
 saveRDS(full_output,file='data_created/full_output_age_15_44.rds')
@@ -204,16 +185,6 @@ write.xlsx(full_output,file='data_created/full_output_age_75.xlsx')
 coeffs = read.xlsx('data_created/meta_model.xlsx', sheet = 'coefficients_individual_level')
 rownames(coeffs) = coeffs$Variable
 coef_name = coeffs$Variable
-coef_name
-# [1] "Age_15_44"                 "Age_45_54"                 "Age_65_74"                 "Age_75_84"                
-# [5] "Age_85"                    "Sex_M"                     "BMI_obsese1"               "BMI_obsese2"              
-# [9] "BMI_obsese3"               "Smoking_ex"                "Smoking_current"           "Hispanic"                 
-# [13] "Black"                     "Asian"                     "Native_American"           "IMD2"                     
-# [17] "IMD3"                      "IMD4"                      "IMD5"                      "BP_high"                  
-# [21] "Respiratory_disease"       "Asthma"                    "CHD"                       "Diabetes"                 
-# [25] "Cancer_nonhaematological1" "Cancer_nonhaematological2" "Cancer_nonhaematological3" "Cancer_haematological1"   
-# [29] "Cancer_haematological2"    "Cancer_haematological3"    "Stroke"                    "Kidney"                   
-# [33] "Arthritis"
 Beta = coeffs$estimate
 names(Beta) = rownames(coeffs)
 
@@ -222,8 +193,7 @@ names(Beta) = rownames(coeffs)
 # ------------------------------------ 15-44 age group ------------------------------------
 # -----------------------------------------------------------------------------------------
 dat = readRDS('data_created/nhis_imputed.rds')
-dat = dat[dat$age<45,]
-dat = dat[(!is.na(dat$hematologic_cancer))|(!is.na(dat$non_hematologic_cancer)),]
+dat = dat %>% mutate(inAnalysis_less_45 = if_else(age<45, 1, 0))
 covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'male',paste0('obesity',1:3),'smoking_ex','smoking_current',
                'hispanic','black','asian','native', paste0('sdi',2:5),
@@ -234,8 +204,7 @@ covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
 # ------- step 1: calculate P (prevalence) i.e. city-level prevalence based on brfss data
 dat.pop = readRDS('data_created/combined_updated.rds')
 dat.pop = dat.pop[,c('PlaceFIPS','population')]
-# ------- extract mean RS for each city
-rs.city.info = readRDS('data_created/risk_score_age_15_44.rds')
+rs.city.info = readRDS('risk_score_age_15_44.rds')
 rs.city.info = rs.city.info[,c('PlaceFIPS','rs_est')]
 dat.city = as.data.frame(readRDS('data_created/prevalance_age_stratification.rds'))
 dat.city = merge(dat.city, dat.pop, by='PlaceFIPS')
@@ -280,17 +249,26 @@ for (i in 1:M){
     if (i!=j){
       tem.i = dat[,covariates[i]]
       tem.j = dat[,covariates[j]]
-      tem = dat[((!is.na(tem.i))&(!is.na(tem.j))),]
-      temi = tem.i[((!is.na(tem.i))&(!is.na(tem.j)))]
-      temj = tem.j[((!is.na(tem.i))&(!is.na(tem.j)))]
-      p.11 = sum(tem[(temi==1)&(temj==1),'sampling_weights'])
-      p.10 = sum(tem[(temi==0)&(temj==1),'sampling_weights'])
-      p.01 = sum(tem[(temi==1)&(temj==0),'sampling_weights'])
-      p.00 = sum(tem[(temi==0)&(temj==0),'sampling_weights'])
-      p.11;p.10;p.01;p.00;sum(p.11+p.10+p.01+p.00)
-      OR[i,j] = OR[j,i] = p.11*p.00/(p.10*p.01)
-      if (p.10 == 0) P10star[i,j] = 1
-      if (p.01 == 0) P01star[i,j] = 1
+      weights = dat %>% dplyr::select(sampling_weights, PPSU, PSTRAT, inAnalysis_less_45)
+      tem.data = cbind(tem.i, tem.j, weights)
+      tem.data = tem.data %>% filter(inAnalysis_less_45 == 1)
+      p.11 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 1)
+      p.10 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 1)
+      p.01 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 0)
+      p.00 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 0)
+      if((p.11 == 0 | p.00 == 0) & (p.01 == 0 | p.10 == 0))
+      {
+        OR[i,j] = OR[j,i] = NaN
+      }else{
+        svy_design = svydesign(id=~PPSU, strata=~PSTRAT, nest = TRUE, weights=~sampling_weights, data =  tem.data)
+        logistic_fit =svyglm(tem.i ~ tem.j, design=svy_design, family = quasibinomial())
+        odds_ratio = exp(logistic_fit$coefficients[2])
+        if(is.na(odds_ratio) == TRUE)
+          odds_ratio = Inf
+        OR[i,j] = OR[j,i] = odds_ratio
+      }
+       if (p.10 == 0) P10star[i,j] = 1
+       if (p.01 == 0) P01star[i,j] = 1
     }
   }
 }
@@ -299,7 +277,7 @@ sum((P10star == 1)&(OR==Inf),na.rm=T) # 2
 sum((P01star == 1)&(OR==Inf),na.rm=T) # 2
 
 # ------- step 3: calculate covariance matrix of the risk score within each city
-multinom.list = list(c(1:5),7:9,10:11,12:15,16:19,25:27,28:30)
+multinom.list = list(1:5,7:9,10:11,12:15,16:19,25:27,28:30)
 multinom.index = unlist(multinom.list)
 binomial.index = c(1:M)[-multinom.index]
 
@@ -310,7 +288,7 @@ cdrs_city_dist = function(P,OR,city,Beta,rs.mu.city){
     cov.cdrs[i,i] = P[city,i]*(1-P[city,i])
   }
   # covariance
-  # 1. between all binomial covariates:
+  # 1. between binomial covariates:
   for (i in binomial.index){
     for (j in binomial.index){
       if (i!=j){
@@ -351,7 +329,6 @@ cdrs_city_dist = function(P,OR,city,Beta,rs.mu.city){
   rs.var.city = Beta %*% cov.cdrs %*% Beta
   return(c(mu.rs = rs.mu.city, var.rs = rs.var.city))
 }
-
 dist.rs.city1 = t(sapply(1:nrow(dat.city),function(x){cdrs_city_dist(P,OR,x,Beta,rs.city[x])}))
 
 
@@ -360,8 +337,7 @@ dist.rs.city1 = t(sapply(1:nrow(dat.city),function(x){cdrs_city_dist(P,OR,x,Beta
 # ------------------------------------ 45-74 age group ------------------------------------
 # -----------------------------------------------------------------------------------------
 dat = readRDS('data_created/nhis_imputed.rds')
-dat = dat[(dat$age>=45)&(dat$age<75),]
-dat = dat[(!is.na(dat$hematologic_cancer))|(!is.na(dat$non_hematologic_cancer)),]
+dat = dat %>% mutate(inAnalysis_greater_45_less_75 = if_else((age>=45 & age < 75), 1, 0))
 covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'male',paste0('obesity',1:3),'smoking_ex','smoking_current',
                'hispanic','black','asian','native', paste0('sdi',2:5),
@@ -370,13 +346,13 @@ covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'kidney_disease','rheumatoid')
 
 # ------- step 1: calculate P (prevalence) i.e. city-level prevalence based on brfss data
-dat.pop = readRDS('data_created/combined_updated.rds')
+dat.pop = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/combined_updated.rds')
 dat.pop = dat.pop[,c('PlaceFIPS','population')]#paste0('Age_',c('15_44','45_54','65_74','75_84','85')),
 # ------- extract mean RS for each city
-rs.city.info = readRDS('data_created/risk_score_age_45_74.rds')
+rs.city.info = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/risk_score_age_45_74.rds')
 rs.city.info = rs.city.info[,c('PlaceFIPS','rs_est')]
 # -------
-dat.city = as.data.frame(readRDS('data_created/prevalance_age_stratification.rds'))
+dat.city = as.data.frame(readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/prevalance_age_stratification.rds'))
 dat.city = merge(dat.city, dat.pop,by='PlaceFIPS')
 dat.city = merge(dat.city, rs.city.info, by='PlaceFIPS')
 
@@ -420,15 +396,24 @@ for (i in 1:M){
     if (i!=j){
       tem.i = dat[,covariates[i]]
       tem.j = dat[,covariates[j]]
-      tem = dat[((!is.na(tem.i))&(!is.na(tem.j))),]
-      temi = tem.i[((!is.na(tem.i))&(!is.na(tem.j)))]
-      temj = tem.j[((!is.na(tem.i))&(!is.na(tem.j)))]
-      p.11 = sum(tem[(temi==1)&(temj==1),'sampling_weights'])
-      p.10 = sum(tem[(temi==0)&(temj==1),'sampling_weights'])
-      p.01 = sum(tem[(temi==1)&(temj==0),'sampling_weights'])
-      p.00 = sum(tem[(temi==0)&(temj==0),'sampling_weights'])
-      p.11;p.10;p.01;p.00;sum(p.11+p.10+p.01+p.00)
-      OR[i,j] = OR[j,i] = p.11*p.00/(p.10*p.01)
+      weights = dat %>% dplyr::select(sampling_weights, PPSU, PSTRAT, inAnalysis_greater_45_less_75)
+      tem.data = cbind(tem.i, tem.j, weights)
+      tem.data = tem.data %>% filter(inAnalysis_greater_45_less_75 == 1)
+      p.11 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 1)
+      p.10 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 1)
+      p.01 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 0)
+      p.00 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 0)
+      if((p.11 == 0 | p.00 == 0) & (p.01 == 0 | p.10 == 0))
+      {
+        OR[i,j] = OR[j,i] = NaN
+      }else{
+        svy_design = svydesign(id=~PPSU, strata=~PSTRAT, nest = TRUE, weights=~sampling_weights, data =  tem.data)
+        logistic_fit =svyglm(tem.i ~ tem.j, design=svy_design, family = quasibinomial())
+        odds_ratio = exp(logistic_fit$coefficients[2])
+        if(is.na(odds_ratio) == TRUE)
+          odds_ratio = Inf
+        OR[i,j] = OR[j,i] = odds_ratio
+      }
       if (p.10 == 0) P10star[i,j] = 1
       if (p.01 == 0) P01star[i,j] = 1
     }
@@ -501,8 +486,7 @@ dist.rs.city2 = t(sapply(1:nrow(dat.city),function(x){cdrs_city_dist(P,OR,x,Beta
 # ------------------------------------ 75 + age group ------------------------------------
 # ----------------------------------------------------------------------------------------
 dat = readRDS('data_created/nhis_imputed.rds')
-dat = dat[(dat$age>=75),]
-dat = dat[(!is.na(dat$hematologic_cancer))|(!is.na(dat$non_hematologic_cancer)),]
+dat = dat %>% mutate(inAnalysis_greater_75 = if_else((age>=75), 1, 0))
 
 covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'male',paste0('obesity',1:3),'smoking_ex','smoking_current',
@@ -512,13 +496,13 @@ covariates = c('Age_15_44','Age_45_54','Age_65_74','Age_75_84','Age_85',
                'kidney_disease','rheumatoid')
 
 # ------- step 1: calculate P (prevalence) i.e. city-level prevalence based on brfss data
-dat.pop = readRDS('data_created/combined_updated.rds')
+dat.pop = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/combined_updated.rds')
 dat.pop = dat.pop[,c('PlaceFIPS','population')]
 # ------- extract mean RS for each city
-rs.city.info = readRDS('data_created/risk_score_age_75.rds')
+rs.city.info = readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/risk_score_age_75.rds')
 rs.city.info = rs.city.info[,c('PlaceFIPS','rs_est')]
 # -------
-dat.city = as.data.frame(readRDS('data_created/prevalance_age_stratification.rds'))
+dat.city = as.data.frame(readRDS('~/Dropbox/NHANES_risk_score/Nature Medicine Revision/Github_revision/COVID19Risk/data_created/prevalance_age_stratification.rds'))
 dat.city = merge(dat.city, dat.pop,by='PlaceFIPS')
 dat.city = merge(dat.city, rs.city.info, by='PlaceFIPS')
 
@@ -562,15 +546,24 @@ for (i in 1:M){
     if (i!=j){
       tem.i = dat[,covariates[i]]
       tem.j = dat[,covariates[j]]
-      tem = dat[((!is.na(tem.i))&(!is.na(tem.j))),]
-      temi = tem.i[((!is.na(tem.i))&(!is.na(tem.j)))]
-      temj = tem.j[((!is.na(tem.i))&(!is.na(tem.j)))]
-      p.11 = sum(tem[(temi==1)&(temj==1),'sampling_weights'])
-      p.10 = sum(tem[(temi==0)&(temj==1),'sampling_weights'])
-      p.01 = sum(tem[(temi==1)&(temj==0),'sampling_weights'])
-      p.00 = sum(tem[(temi==0)&(temj==0),'sampling_weights'])
-      p.11;p.10;p.01;p.00;sum(p.11+p.10+p.01+p.00)
-      OR[i,j] = OR[j,i] = p.11*p.00/(p.10*p.01)
+      weights = dat %>% dplyr::select(sampling_weights, PPSU, PSTRAT, inAnalysis_greater_75)
+      tem.data = cbind(tem.i, tem.j, weights)
+      tem.data = tem.data %>% filter(inAnalysis_greater_75 == 1)
+      p.11 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 1)
+      p.10 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 1)
+      p.01 = sum(tem.data$tem.i == 1 & tem.data$tem.j == 0)
+      p.00 = sum(tem.data$tem.i == 0 & tem.data$tem.j == 0)
+      if((p.11 == 0 | p.00 == 0) & (p.01 == 0 | p.10 == 0))
+      {
+        OR[i,j] = OR[j,i] = NaN
+      }else{
+        svy_design = svydesign(id=~PPSU, strata=~PSTRAT, nest = TRUE, weights=~sampling_weights, data =  tem.data)
+        logistic_fit =svyglm(tem.i ~ tem.j, design=svy_design, family = quasibinomial())
+        odds_ratio = exp(logistic_fit$coefficients[2])
+        if(is.na(odds_ratio) == TRUE)
+          odds_ratio = Inf
+        OR[i,j] = OR[j,i] = odds_ratio
+      }
       if (p.10 == 0) P10star[i,j] = 1
       if (p.01 == 0) P01star[i,j] = 1
     }
@@ -648,7 +641,6 @@ mean.city.risks = full.city$w1 * exp(dist.rs.city1[,'mu.rs']+0.5*dist.rs.city1[,
   full.city$w2 * exp(dist.rs.city2[,'mu.rs']+0.5*dist.rs.city2[,'var.rs']) + 
   full.city$w3 * exp(dist.rs.city3[,'mu.rs']+0.5*dist.rs.city3[,'var.rs'])
 Rl = sum(mean.city.risks * as.numeric(as.character(full.city$population)))/sum(as.numeric(as.character(full.city$population)))
-Rl # 6.098574
 # proportion of 3 mixture components within each state
 colnames(dist.rs.city1) = c("mu1", "var1")
 colnames(dist.rs.city2) = c("mu2", "var2")
@@ -750,9 +742,6 @@ for (s in 1:length(scenario)){
   # -------- output
   write.xlsx(highrisk.city,
              file=paste0('data_created/highrisk_city_among_',sample,'.xlsx'))
-  # highrisk.city = cbind(highrisk.city, dist.rs.city1, dist.rs.city2, dist.rs.city3)
-  # write.xlsx(highrisk.city,
-  #            file=paste0('data_created/mixture_normal_distribution_city_among_',sample,'.xlsx'))
   print(s)
 }
 

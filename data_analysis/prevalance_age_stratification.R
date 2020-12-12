@@ -1,3 +1,5 @@
+library(fastDummies)
+library(Hmisc)
 update_p11 = function(p1,p2,r){
   a = 1 - r
   b = 1 + (r-1)*(p1+p2)
@@ -9,20 +11,25 @@ prevalance_brfss_census = readRDS('data_created/combined_updated.rds')
 prevalance_brfss_census = prevalance_brfss_census %>% mutate("Age_45_74" = Age_45_54 + Age_55_64 + Age_65_74, "Age_75+" = Age_75_84 + Age_85)
 nhis_data = readRDS('data_created/nhis_2017.rds')
 
+additional_weights = nhis_data[, c(37:38)]
 nhis_data  = nhis_data[,c(6:7, 9:24,34,35,36, 30,31)]
 nhis_data= nhis_data %>% mutate(age_mixture_cat = case_when(agegroup.cdc == "45-54" | agegroup.cdc == "55_64" | agegroup.cdc == "65_74" ~ '45_74',
                                                             agegroup.cdc == "75-84" | agegroup.cdc == "85+" ~ '75above',
                                                             agegroup.cdc == "15_45" ~ '15_44'))
-
+nhis_data = cbind(nhis_data, additional_weights)
 #----Throughout age_mixture_cat40_and_above is 1 if age is greater than 40
 
 #----Age-Sex---#
 
-data = nhis_data[, c(1,2,24)]
+data = nhis_data[, c(1,2,24, 25:26)]
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "sex"))
-colnames(data_design_matrix)[1] = "sampling_weights"
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "sex"))
+colnames(data_dummy)[1] = "sampling_weights"
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
+
 
 logistic_fit_adj =svyglm(age_mixture_cat_45_74 ~ sex_Male, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
@@ -49,24 +56,32 @@ prevalance_of_male_given_age_15_44 = p11/p2
 #----Age-Diabetes---#
 hbAc1_level = sasxport.get('data/NHANES_Diabetes/GHB_J.xpt')
 demo = sasxport.get('data/NHANES_Diabetes/DEMO_J.xpt')
-demo_sampling_weights = demo[, c(1,5,41)]
+demo_sampling_weights = demo[, c(1,5,41:43)]
 diabetes_questionnaire = sasxport.get('data/NHANES_Diabetes/DIQ_J.xpt')
-data = merge(merge(hbAc1_level, demo_sampling_weights, by = "seqn"), diabetes_questionnaire, by = "seqn")
-data_diabetes = data[, c(2,3,4,5)]
-data_diabetes_greater_18 = data_diabetes[which(data_diabetes$ridageyr>=15), ]
-data_diabetes_greater_18 = data_diabetes_greater_18[which(data_diabetes_greater_18$diq010 == 1 | data_diabetes_greater_18$diq010 == 2), ]
-data = data_diabetes_greater_18 %>% mutate(diabetes = case_when(diq010 == 2 ~ 'No',
+data = full_join(full_join(hbAc1_level, demo_sampling_weights, by = "seqn"), diabetes_questionnaire, by = "seqn")
+data_diabetes = data[, c(2,3,4,5,6,7)]
+#data_diabetes_greater_18 = data_diabetes[which(data_diabetes$ridageyr>=15), ]
+#data_diabetes_greater_18 = data_diabetes_greater_18[which(data_diabetes_greater_18$diq010 == 1 | data_diabetes_greater_18$diq010 == 2), ]
+data = data_diabetes %>% mutate(diabetes = case_when(diq010 == 2 ~ 'No',
                                                                 diq010 == 1 &  lbxgh < 7.4 ~ 'Controlled',
                                                                 diq010 == 1 &  lbxgh >= 7.4 ~ 'Uncontrolled'))
 data = data %>% mutate(age_mixture_cat = case_when(ridageyr >= 15 & ridageyr < 45 ~ '15_44',
                                                    ridageyr >= 45 & ridageyr < 75 ~ '45_74',
                                                    ridageyr >= 75 ~ '75above'))
-data$diabetes[which(data$diabetes == "No")] = "A"
-data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("diabetes", "age_mixture_cat"))
-colnames(data_dummy)[3] = "sampling_weights"
-dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
 
+data = data %>% mutate(inAnalysis = if_else(ridageyr>=15 & (diq010 == 1 | diq010 == 2), 1, 0))
+
+data$diabetes[which(data$diabetes == "No")] = "A"
+data  = data[-which(is.na(data$diabetes) == TRUE),] 
+data_dummy = dummy_cols(data, select_columns = c("diabetes", "age_mixture_cat"))
+colnames(data_dummy)[3] = "sampling_weights"
+data_dummy = data_dummy[-which(data_dummy$sampling_weights == 0), ]
+dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~sdmvpsu, strata=~sdmvstra,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
+
+dsrtat = subset(dstrat, inAnalysis)
 logistic_fit_adj =svyglm(age_mixture_cat_45_74 ~ diabetes_Controlled , design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = diabetes_controlled_p = prevalance_brfss_census$DIABETES_ctrled_CrudePrev
@@ -115,12 +130,14 @@ prevalance_of_diabetesYes_uncontrolled_given_age_15_44 = p11/p2
 
 
 #----Age-Smoking---#
-data = nhis_data[, c(1,7,24)]
+data = nhis_data[, c(1,7,24, 25,26)]
 data$smoking_status[which(data$smoking_status == "NA")] = NA
 data$smoking_status[which(data$smoking_status == "Never")] = "A"
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "smoking_status"))
-dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "smoking_status"))
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 
 logistic_fit_adj =svyglm(age_mixture_cat_45_74 ~ smoking_status_Current, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
@@ -167,12 +184,14 @@ p11 = update_p11(p1,p2,r)
 prevalance_of_smoking_statusFormer_given_age_15_44 = p11/p2
 
 #----Age-Rheumatoid---#
-data = nhis_data[, c(1,8,24)]
+data = nhis_data[, c(1,8,24, 25,26)]
 data$rheumatoid[which(data$rheumatoid == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "rheumatoid"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "rheumatoid"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ rheumatoid_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = rheumatoidYes_p = prevalance_brfss_census$rheumatoid
@@ -199,12 +218,14 @@ prevalance_of_rheumatoidYes_given_age_75above = p11/p2
 
 
 #----Age-Asthma---#
-data = nhis_data[, c(1,9,24)]
+data = nhis_data[, c(1,9,24,25,26)]
 data$asthma[which(data$asthma == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "asthma"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "asthma"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ asthma_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = asthmaYes_p = prevalance_brfss_census$CASTHMA_CrudePrev
@@ -232,12 +253,14 @@ prevalance_of_asthmaYes_given_age_75above = p11/p2
 
 
 #----Age-Stroke---#
-data = nhis_data[, c(1,10,24)]
+data = nhis_data[, c(1,10,24, 25,26)]
 data$stroke[which(data$stroke == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "stroke"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "stroke"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ stroke_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = strokeYes_p = prevalance_brfss_census$STROKE_CrudePrev
@@ -263,12 +286,14 @@ p11 = update_p11(p1,p2,r)
 prevalance_of_strokeYes_given_age_75above = p11/p2 
 
 #----Age-Heart---#
-data = nhis_data[, c(1,15,24)]
+data = nhis_data[, c(1,15,24,25,26)]
 data$heart_disease[which(data$heart_disease == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "heart_disease"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "heart_disease"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ heart_disease_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = heart_diseaseYes_p = prevalance_brfss_census$CHD_CrudePrev
@@ -295,12 +320,14 @@ prevalance_of_heart_diseaseYes_given_age_75above = p11/p2
 
 
 #----Age-Hypertension---#
-data = nhis_data[, c(1,16,24)]
+data = nhis_data[, c(1,16,24,25,26)]
 data$hypertension[which(data$hypertension == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "hypertension"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "hypertension"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ hypertension_Hypertension_high_bp, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = hypertensionYes_p = prevalance_brfss_census$BPHIGH_CrudePrev
@@ -326,12 +353,14 @@ p11 = update_p11(p1,p2,r)
 prevalance_of_hypertensionYes_given_age_75above = p11/p2 
 
 #----Age-Resp_ex_asthma---#
-data = nhis_data[, c(1,17,24)]
+data = nhis_data[, c(1,17,24,25,26)]
 data$resp_ex_asthma[which(data$resp_ex_asthma == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "resp_ex_asthma"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "resp_ex_asthma"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ resp_ex_asthma_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = resp_ex_asthmaYes_p = prevalance_brfss_census$COPD_CrudePrev
@@ -358,11 +387,14 @@ prevalance_of_resp_ex_asthmaYes_given_age_75above = p11/p2
 
 
 #----Age-Kidney---#
-data = nhis_data[, c(1,18,24)]
+data = nhis_data[, c(1,18,24,25,26)]
 data$kidney_disease[which(data$kidney_disease == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "kidney_disease"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "kidney_disease"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ kidney_disease_Yes, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
@@ -390,11 +422,14 @@ prevalance_of_kidney_diseaseYes_given_age_75above = p11/p2
 
 
 #----Age-Race_ethnicity---#
-data = nhis_data[, c(1,21,24)]
+data = nhis_data[, c(1,21,24,25,26)]
 #data$race_ethnicity[which(data$race_ethnicity == "NA")] = NA
 data_complete = data[complete.cases(data), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "race_ethnicity.cdc"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "race_ethnicity.cdc"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ race_ethnicity.cdc_Non_hispanic_Black, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
@@ -506,20 +541,22 @@ prevalance_of_hispanic_given_age_75above = p11/p2
 
 
 #----Age-Hematologic---#
-data = nhis_data[, c(1,19,22,24)]
+data = nhis_data[, c(1,19,22,24, 25, 26)]
 data = data  %>% mutate(hemato = case_when(hematologic_cancer == "None" ~ 'No',
                                                              hematologic_cancer == "Hematological" &  diagnoses_cancer == "greater_than_5_yr" ~ 'greater_than_5_yr',
                                                              hematologic_cancer == "Hematological" &  diagnoses_cancer == "1_5yr" ~ '1_5yr',
                                                              hematologic_cancer == "Hematological" &  diagnoses_cancer == "less_than_1_yr" ~ 'less_than_1_yr'))
-data_hemato = data[, c(1,4,5)]
+data_hemato = data[, c(1,4,5,6,7)]
 data_complete = data_hemato[complete.cases(data_hemato), ]
-data_complete$hemato[which(data_complete$hemato == "No")] = "0yr"
+data_hemato$hemato[which(data_hemato$hemato == "No")] = "0yr"
 
 
 
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "hemato"))
+data_dummy = dummy_cols(data_hemato, select_columns = c("age_mixture_cat", "hemato"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
-
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ hemato_less_than_1_yr, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
 p1 = hemato_less_than_1_yr_p = prevalance_brfss_census$hematologic_cancer1
@@ -596,15 +633,18 @@ prevalance_of_hemato_greater_than_5_yr_given_age_75above = p11/p2
 
 
 #----Age-non_hematologic---#
-data = nhis_data[, c(1,19,23,24)]
+data = nhis_data[, c(1,19,23,24, 25,26)]
 data = data  %>% mutate(nonhemato = case_when(non_hematologic_cancer == "None" ~ 'No',
                                            non_hematologic_cancer == "Non_hematological" &  diagnoses_cancer == "greater_than_5_yr" ~ 'greater_than_5_yr',
                                            non_hematologic_cancer == "Non_hematological" &  diagnoses_cancer == "1_5yr" ~ '1_5yr',
                                            non_hematologic_cancer == "Non_hematological" &  diagnoses_cancer == "less_than_1_yr" ~ 'less_than_1_yr'))
-data_nonhemato = data[, c(1,4,5)]
+data_nonhemato = data[, c(1,4,5,6,7)]
 data_complete = data_nonhemato[complete.cases(data_nonhemato), ]
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "nonhemato"))
+data_dummy = dummy_cols(data_nonhemato, select_columns = c("age_mixture_cat", "nonhemato"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ nonhemato_less_than_1_yr, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])
@@ -680,12 +720,15 @@ prevalance_of_nonhemato_greater_than_5_yr_given_age_75above = p11/p2
 
 
 #----Age-Obesity---#
-data = nhis_data[, c(1,20,24)]
+data = nhis_data[, c(1,20,24,25,26)]
 data$Obesity[which(data$Obesity == "NA")] = NA
 data_complete = data[complete.cases(data), ]
 
-data_dummy = dummy_cols(data_complete, select_columns = c("age_mixture_cat", "Obesity"))
+data_dummy = dummy_cols(data, select_columns = c("age_mixture_cat", "Obesity"))
 dstrat<-svydesign(ids=~1,weights=~sampling_weights, data = data_dummy)
+dstrat<-svydesign(id=~PPSU, strata=~PSTRAT,
+                  nest = TRUE,
+                  weights=~sampling_weights, data = data_dummy)
 
 logistic_fit_adj =svyglm(age_mixture_cat_15_44 ~ Obesity_Obese_I, design=dstrat, family = quasibinomial())
 r = odds_ratio = exp(logistic_fit_adj$coefficients[2])

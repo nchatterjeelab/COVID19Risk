@@ -5,13 +5,14 @@ library(MASS)
 library(SDMTools)
 # --------------------------- load the city-level data ---------------------------
 dat = readRDS('data_created/nhis_2017.rds')
+if ('rhemumatoid' %in% colnames(dat)) colnames(dat)[which(colnames(dat) == 'rhemumatoid')] = 'rheumatoid'
 col.keep = c("SRVY_YR", "HHX", "FMX", "FPX", "sampling_weights",
              "sex", "age", "BMI", "agegroup", "diabetes",
              "smoking_status", "rheumatoid", "asthma", "stroke", 
              "heart_disease", "hypertension", "resp_ex_asthma", "kidney_disease",
              "liver_disease","race_ethnicity.cdc",
              "hematologic_cancer", "non_hematologic_cancer","diagnoses_cancer",
-             "Obesity" )
+             "Obesity", "PSTRAT", "PPSU")
 missing.dat = sapply(1:length(col.keep),function(x){sum(!complete.cases(dat[,col.keep[x]]))})
 names(missing.dat) = col.keep
 missing.dat
@@ -95,7 +96,7 @@ prob.black = sum(data$proportion_black  * as.numeric(as.character(data$populatio
 prob.cities.given.black = (data$proportion_black * city.size)/prob.black
 data.black = data.frame(data$sdi, prob.cities.given.black)
 colnames(data.black) = c("sdi", "prob.cities.given.black")
-theta = log(c(1, 1.19, 1.26, 1.53, 1.70))
+theta = c(1,0.148420005,0.231111721,0.431782416,0.570979547)
 data.black = data.black %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
                                                             sdi == 2 ~ theta[2],
                                                             sdi == 3 ~ theta[3],
@@ -104,14 +105,13 @@ data.black = data.black %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
 nhis.black.risk.sdi = sum(data.black$prob.cities.given.black*exp(data.black$coefficients))
 nhis.black.risk.sdi1 = sum(data.black$prob.cities.given.black*data.black$coefficients)
 prev.sdi.black = sapply(1:5,function(x){sum(data.black[data.black$sdi == x,'prob.cities.given.black'])})
-# 0.01832218 0.03682176 0.08825083 0.17395554 0.68264968
 #Non_hispanic_white
 city.size = as.numeric(as.character(data$population))/sum(as.numeric(as.character(data$population)))
 prob.white = sum(data$proportion_white * as.numeric(as.character(data$population)))/sum(as.numeric(as.character(data$population)))
 prob.cities.given.white = (data$proportion_white * city.size)/prob.white
 data.white = data.frame(data$sdi, prob.cities.given.white)
 colnames(data.white) = c("sdi", "prob.cities.given.white")
-theta = log(c(1, 1.19, 1.26, 1.53, 1.70))
+theta = c(1,0.148420005,0.231111721,0.431782416,0.570979547)
 data.white = data.white %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
                                                             sdi == 2 ~ theta[2],
                                                             sdi == 3 ~ theta[3],
@@ -120,14 +120,13 @@ data.white = data.white %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
 nhis.white.risk.sdi = sum(data.white$prob.cities.given.white*exp(data.white$coefficients))
 nhis.white.risk.sdi1 = sum(data.white$prob.cities.given.white*data.white$coefficients)
 prev.sdi.white = sapply(1:5,function(x){sum(data.white[data.white$sdi == x,'prob.cities.given.white'])})
-# 0.04599002 0.09003797 0.16981682 0.23999593 0.45415925
 #Hispanic
 city.size = as.numeric(as.character(data$population))/sum(as.numeric(as.character(data$population)))
 prob.hispanic = sum(data$proportion_hispanic  * as.numeric(as.character(data$population)))/sum(as.numeric(as.character(data$population)))
 prob.cities.given.hispanic = (data$proportion_hispanic * city.size)/prob.hispanic
 data.hispanic = data.frame(data$sdi, prob.cities.given.hispanic)
 colnames(data.hispanic) = c("sdi", "prob.cities.given.hispanic")
-theta = log(c(1, 1.19, 1.26, 1.53, 1.70))
+theta = c(1,0.148420005,0.231111721,0.431782416,0.570979547)
 data.hispanic = data.hispanic %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
                                                                   sdi == 2 ~ theta[2],
                                                                   sdi == 3 ~ theta[3],
@@ -136,14 +135,13 @@ data.hispanic = data.hispanic %>% mutate(coefficients = case_when(sdi == 1 ~ the
 nhis.hispanic.risk.sdi = sum(data.hispanic$prob.cities.given.hispanic*exp(data.hispanic$coefficients))
 nhis.hispanic.risk.sdi1 = sum(data.hispanic$prob.cities.given.hispanic*data.hispanic$coefficients)
 prev.sdi.hispanic = sapply(1:5,function(x){sum(data.hispanic[data.hispanic$sdi == x,'prob.cities.given.hispanic'])})
-# 0.01423473 0.02870951 0.09025737 0.22035591 0.64644249
 # Asian
 city.size = as.numeric(as.character(data$population))/sum(as.numeric(as.character(data$population)))
 prob.asian = sum(data$proportion_asian  * as.numeric(as.character(data$population)))/sum(as.numeric(as.character(data$population)))
 prob.cities.given.asian = (data$proportion_asian * city.size)/prob.asian
 data.asian = data.frame(data$sdi, prob.cities.given.asian)
 colnames(data.asian) = c("sdi", "prob.cities.given.asian")
-theta = log(c(1, 1.19, 1.26, 1.53, 1.70))
+theta = c(1,0.148420005,0.231111721,0.431782416,0.570979547)
 data.asian = data.asian %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
                                                                   sdi == 2 ~ theta[2],
                                                                   sdi == 3 ~ theta[3],
@@ -152,14 +150,13 @@ data.asian = data.asian %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
 nhis.asian.risk.sdi = sum(data.asian$prob.cities.given.asian*exp(data.asian$coefficients))
 nhis.asian.risk.sdi1 = sum(data.asian$prob.cities.given.asian*data.asian$coefficients)
 prev.sdi.asian = sapply(1:5,function(x){sum(data.asian[data.asian$sdi == x,'prob.cities.given.asian'])})
-# 0.04186209 0.04180604 0.17058649 0.25657903 0.48916635
 # Native
 city.size = as.numeric(as.character(data$population))/sum(as.numeric(as.character(data$population)))
 prob.native = sum(data$proportion_american_indian_alaska_native  * as.numeric(as.character(data$population)))/sum(as.numeric(as.character(data$population)))
 prob.cities.given.native = (data$proportion_american_indian_alaska_native * city.size)/prob.native
 data.native = data.frame(data$sdi, prob.cities.given.native)
 colnames(data.native) = c("sdi", "prob.cities.given.native")
-theta = log(c(1, 1.19, 1.26, 1.53, 1.70))
+theta = c(1,0.148420005,0.231111721,0.431782416,0.570979547)
 data.native = data.native %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1],
                                                             sdi == 2 ~ theta[2],
                                                             sdi == 3 ~ theta[3],
@@ -168,7 +165,6 @@ data.native = data.native %>% mutate(coefficients = case_when(sdi == 1 ~ theta[1
 nhis.native.risk.sdi = sum(data.native$prob.cities.given.native*exp(data.native$coefficients))
 nhis.native.risk.sdi1 = sum(data.native$prob.cities.given.native*data.native$coefficients)
 prev.sdi.native = sapply(1:5,function(x){sum(data.native[data.native$sdi == x,'prob.cities.given.native'])})
-# 0.01727652 0.09574445 0.18060266 0.28700502 0.41937135
 
 
 # ----------- marginal prevalence of SDI:
@@ -179,21 +175,6 @@ prev.sdi.marginal =
   prev.sdi.hispanic * sum(nhis$hispanic * nhis$sampling_weights)/sum(nhis$sampling_weights) + 
   prev.sdi.asian * sum(nhis$asian * nhis$sampling_weights)/sum(nhis$sampling_weights) + 
   prev.sdi.native * sum(nhis$native * nhis$sampling_weights)/sum(nhis$sampling_weights)
-prev.sdi.marginal
-# 0.03675796 0.07101181 0.14635682 0.22943617 0.51643724
-sum(prev.sdi.marginal) # 1
-
-# ------------ co-prevalence:
-prev.sdi.white * sum(nhis$white * nhis$sampling_weights)/sum(nhis$sampling_weights)
-# 0.03004995 0.05883095 0.11095857 0.15681370 0.29674834
-prev.sdi.hispanic * sum(nhis$hispanic * nhis$sampling_weights)/sum(nhis$sampling_weights)
-# 0.002346586 0.004732744 0.014878871 0.036325534 0.106565639
-prev.sdi.black * sum(nhis$black * nhis$sampling_weights)/sum(nhis$sampling_weights)
-# 0.002353387 0.004729559 0.011335349 0.022343662 0.087682716
-prev.sdi.asian * sum(nhis$asian * nhis$sampling_weights)/sum(nhis$sampling_weights)
-# 0.001851055 0.001848577 0.007542983 0.011345395 0.021629927
-prev.sdi.native * sum(nhis$native * nhis$sampling_weights)/sum(nhis$sampling_weights)
-# 0.0001569833 0.0008699828 0.0016410477 0.0026078737 0.0038106217
 
 
 
@@ -216,7 +197,6 @@ indscore$sdi5 = ifelse(indscore$sdi == 5, 1, 0)
 
 ### impute arthritis
 # among arthritis, the ratio_rheumatoid_to_non_rheumatoid =  0.269098
-# colnames(indscore)[which(colnames(indscore) == 'rhemumatoid')]='rheumatoid'
 ratio.rheumatoid.arthritis = 0.269098/(1+0.269098)
 indscore$arthritis = indscore$rheumatoid
 indscore$rheumatoid = 0
@@ -228,3 +208,19 @@ for (i in 1:nrow(indscore)){
 }
 nhis_imputed = indscore
 saveRDS(nhis_imputed, file = 'data_created/nhis_imputed.rds')
+
+# simulate diabetes controlled & uncontrolled 
+ratio.unctrl.ctrl = 0.6133612
+pr.unctrl = ratio.unctrl.ctrl/(1+ratio.unctrl.ctrl)
+nhis_imputed$diabetes_ctrl = nhis_imputed$diabetes_unctrl = 0
+set.seed(2020)
+for (i in 1:nrow(nhis_imputed)){
+  if (nhis_imputed$diabetes[i] == 1){
+    nhis_imputed$diabetes_unctrl[i] = rbinom(n=1, size=1, prob=pr.unctrl)
+    nhis_imputed$diabetes_ctrl[i] = 1 - nhis_imputed$diabetes_unctrl[i]
+  }
+}
+saveRDS(nhis_imputed,'data_created/nhis_imputed_diabetes_unctrl_ctrl.rds')
+
+
+
