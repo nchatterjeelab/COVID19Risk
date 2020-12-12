@@ -1,290 +1,64 @@
-ascii_link = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/NHIS/2017/samadult.zip"
-program_code = "ftp://ftp.cdc.gov/pub/Health_Statistics/NCHS/Program_Code/NHIS/2017/SAMADULT.sas"
-NHIS.17.samadult.df  = read.SAScii (ascii_link , program_code , zipped = T )
-gender_var = "SEX"
-race_var = c("HISPAN_I", "RACERPI2", "MRACBPI2")
-age_var = "AGE_P"
-bmi_var = "BMI"
-smoking_var = "SMKSTAT2"
-cancer_var = c("CANEV", paste0("CNKIND", seq(1, 31,1)))
-age_cancer_var = c(paste0("CANAGE", seq(1,30,1)))
-diabetes_var = c("ALCHRC10", "DIBEV1", "DIBPRE2", "DIBTYPE")
-liver_codition_var = "LIVYR"
-bp_var = c("ALCHRC9", "HYPEV", "HYBPCKNO", "HYPYR1", "HYBPLEV")
-stroke_var = c("STREV", "ALCHRC8")
-heart_var = c("ALCHRC7", "MIEV", "HRTEV", "CHDEV", "ANGEV")
-rheumatoid_var = c("ARTH1")
-resp_ex_asthma_var = c("COPDEV", "CBRCHYR")
-asthma_var = c("AASMEV", "AASSTILL")
-kidney_var = "KIDWKYR"
-nhis_2017_data = NHIS.17.samadult.df[, c(1,2,3,6,7,8,9,which(colnames(NHIS.17.samadult.df) %in% c(gender_var, race_var, age_var, bmi_var, smoking_var, cancer_var, age_cancer_var, diabetes_var, liver_codition_var, bp_var, stroke_var, heart_var, rheumatoid_var, resp_ex_asthma_var, asthma_var, kidney_var) == T))]
+########----------set the working directory to CDC data folder
+deaths = read.csv("~data/CDC/Deaths_involving_coronavirus_disease_2019__COVID-19__by_race_and_Hispanic_origin_group_and_age__by_state.csv", header = T)
+population = read.csv("data/CDC/population_category_wise.csv")
+#Check US population is ~ 308 million in 2010
 
-#---- Male = 1, Female = 0 (2 = Female coded in NHIS)---#
-nhis_2017_data$SEX[nhis_2017_data$SEX == 2] = "Female"
-nhis_2017_data$SEX[nhis_2017_data$SEX == 1] = "Male"
+####-------- Unadjusted RR for age-groups
+deaths = deaths %>% filter(State != "United States") %>% 
+  filter(Age.group != "1-4 years") %>% 
+  filter(Age.group != "5-14 years") %>% 
+  filter(Age.group != "Under 1 year") %>%
+  filter(Age.group != "All Ages") %>% 
+  filter(Race.and.Hispanic.Origin.Group != "Total Deaths") %>% 
+  filter(Race.and.Hispanic.Origin.Group != "Unknown")
+deaths$State[which(deaths$State == "New York City")] = "New York"
+deaths = deaths %>% mutate(Race = Race.and.Hispanic.Origin.Group) %>% 
+  mutate(agegroup = case_when(Age.group == "15-24 years" | Age.group == "25-34 years" | Age.group == "35-44 years"~ '15-44',
+                              Age.group == "45-54 years" ~ '45-54',
+                              Age.group == "55-64 years" ~ '55-64',
+                              Age.group == "65-74 years" ~ '65-74',
+                              Age.group == "75-84 years" ~ '75-84',
+                              Age.group == "85 years and over" ~ '85+')) %>%
+  dplyr::select(State, COVID.19.Deaths, agegroup, Race)
 
-nhis_2017_data = nhis_2017_data %>% mutate(agegroup = case_when(AGE_P >= 18  & AGE_P < 40 ~ '18_40',
-                                                                AGE_P >= 40  & AGE_P < 50 ~ '40_50',
-                                                                AGE_P >= 50  & AGE_P < 60 ~ '50_60',
-                                                                AGE_P >= 60  & AGE_P < 70 ~ '60_70',
-                                                                AGE_P >= 70  & AGE_P < 80 ~ '70_80',
-                                                                AGE_P >= 80  & AGE_P < 100 ~ '80_and_above'))
-nhis_2017_data = nhis_2017_data %>% mutate(agegroup.cdc = case_when(AGE_P >= 15  & AGE_P < 45 ~ '15_45',
-                                                                AGE_P >= 45  & AGE_P < 55 ~ '45_54',
-                                                                AGE_P >= 55  & AGE_P < 65 ~ '55_64',
-                                                                AGE_P >= 65  & AGE_P < 75 ~ '65_74',
-                                                                AGE_P >= 75  & AGE_P < 85 ~ '75_84',
-                                                                AGE_P >= 85  & AGE_P < 100 ~ '85+'))
-nhis_2017_data = nhis_2017_data %>% mutate(diabetes = case_when(DIBEV1 == 1 ~ 'Yes',
-                                                                DIBEV1 == 2 | DIBEV1 == 3 ~ 'No',
-                                                                DIBEV1 > 3 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(smoking_status = case_when(SMKSTAT2 == 3 ~ 'Former',
-                                                                      SMKSTAT2 == 1 | SMKSTAT2 == 2 ~ 'Current',
-                                                                      SMKSTAT2 == 4 ~ 'Never',
-                                                                      SMKSTAT2 > 4 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(rheumatoid = case_when(ARTH1 == 1 ~ 'Yes',
-                                                                   ARTH1 == 2 ~ 'No',
-                                                                   ARTH1 > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(asthma = case_when(AASSTILL == 1 & AASMEV == 1 ~ 'Yes',
-                                                              AASSTILL == 2 & AASMEV == 1 ~ 'No',
-                                                              AASMEV  == 2 ~ 'No'))
-nhis_2017_data = nhis_2017_data %>% mutate(stroke = case_when(STREV == 1 ~ 'Yes',
-                                                              STREV == 2 ~ 'No',
-                                                              STREV > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(heart_disease1 = case_when(MIEV == 1 ~ 'Yes',
-                                                                      MIEV == 2 ~ 'No',
-                                                                      MIEV > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(heart_disease2 = case_when(ALCHRC7 == 1 & HRTEV == 1 ~ 'Yes',
-                                                                      ALCHRC7 == 2 | HRTEV == 2 ~ 'No',
-                                                                      HRTEV > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(heart_disease3 = case_when(CHDEV == 1 ~ 'Yes',
-                                                                      CHDEV == 2 ~ 'No',
-                                                                      CHDEV > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(heart_disease4 = case_when(ANGEV == 1 ~ 'Yes',
-                                                                      ANGEV == 2 ~ 'No',
-                                                                      ANGEV > 2 ~ 'NA'))
-nhis_2017_data = nhis_2017_data %>% mutate(heart_disease = case_when(heart_disease2 == "Yes" | heart_disease3 == "Yes" | heart_disease4 == "Yes" ~ 'Yes',
-                                                                     heart_disease2 == "No" & heart_disease3 == "No" & heart_disease4 == "No" ~ 'No'))
-nhis_2017_data = nhis_2017_data %>% mutate(hypertension = case_when(HYPYR1 == 1 | HYBPLEV == 2 ~ 'Hypertension_high_bp',
-                                                                    HYBPLEV == 3 ~ 'Normal'))
-nhis_2017_data = nhis_2017_data %>% mutate(resp_ex_asthma = case_when(COPDEV == 1 | CBRCHYR == 1 ~ 'Yes',
-                                                                      COPDEV == 2 & CBRCHYR == 2 ~ 'No'))
-nhis_2017_data = nhis_2017_data %>% mutate(kidney_disease = case_when(KIDWKYR == 1 ~ 'Yes',
-                                                                      KIDWKYR == 2 ~ 'No'))
-nhis_2017_data = nhis_2017_data %>% mutate(liver_disease = case_when(LIVYR == 1 ~ 'Yes',
-                                                                     LIVYR == 2 ~ 'No'))
-nhis_2017_data = nhis_2017_data %>% mutate(id_created = seq(1, nrow(nhis_2017_data), 1))
-nhis_2017_data = nhis_2017_data %>% mutate(ethnicity = case_when(HISPAN_I < 10 ~ 'Hispanic',
-                                                                 HISPAN_I == 12 ~ 'Not_hispanic'))
-nhis_2017_data = nhis_2017_data %>% mutate(race = case_when(MRACBPI2 == 1 ~ 'White',
-                                                            MRACBPI2 == 2 ~ 'Black',
-                                                            MRACBPI2 == 6 |  MRACBPI2 == 7 |  MRACBPI2 == 12  ~ 'Asian',
-                                                            MRACBPI2 == 3 |  MRACBPI2 == 16  ~ 'Others',
-                                                            MRACBPI2 == 17 ~ 'Mixed'))
+deaths_race = deaths %>% group_by(State,agegroup,Race) %>% summarise(covid_deaths = sum(COVID.19.Deaths, na.rm = T)) %>% ungroup()
 
-nhis_2017_data = nhis_2017_data %>% mutate(race.cdc = case_when(MRACBPI2 == 1 ~ 'White',
-                                                            MRACBPI2 == 2 ~ 'Black',
-                                                            MRACBPI2 == 6 |  MRACBPI2 == 7 |  MRACBPI2 == 12  ~ 'Asian',
-                                                            MRACBPI2 == 3  ~ 'American_Indian',
-                                                            MRACBPI2 == 17 ~ 'More_than_one_race'))
+population = population %>% filter(ORIGIN != 0) %>% filter(SEX != 0) %>% filter(AGE >=15)
+population = population %>% mutate(agegroup = case_when(AGE >= 15  & AGE < 45 ~ '15-44',
+                                                        AGE >= 45  & AGE < 55 ~ '45-54',
+                                                        AGE >= 55  & AGE < 65 ~ '55-64',
+                                                        AGE >= 65  & AGE < 75 ~ '65-74',
+                                                        AGE >= 70  & AGE < 85 ~ '75-84',
+                                                        AGE >= 80  & AGE < 100 ~ '85+')) %>%
+  mutate(Race = case_when(RACE == 1  & ORIGIN == 1 ~ 'Non-Hispanic White',
+                          RACE == 2  & ORIGIN == 1 ~ 'Non-Hispanic Black',
+                          RACE == 3  & ORIGIN == 1 ~ 'Non-Hispanic American Indian or Alaska Native',
+                          RACE == 4  & ORIGIN == 1 ~ 'Non-Hispanic Asian',
+                          RACE == 5  & ORIGIN == 1 ~ 'Non-Hispanic Native Hawaiian or Other Pacific Islander',
+                          RACE == 6  & ORIGIN == 1 ~ 'Non-Hispanic More than one race',
+                          ORIGIN == 2 ~ 'Hispanic or Latino'))
 
-nhis_2017_data = nhis_2017_data %>% mutate(race_ethnicity = case_when(ethnicity == "Not_hispanic" & race == "White" ~ 'Non_hispanic_white',
-                                                                      ethnicity == "Not_hispanic" & race == "Black" ~ 'Black',
-                                                                      ethnicity == "Not_hispanic" & race == "Asian" ~ 'Asian',
-                                                                      ethnicity == "Not_hispanic" & race == "Others"  ~ 'Others',
-                                                                      ethnicity == "Not_hispanic" & race == "Mixed" ~ 'Mixed',
-                                                                      ethnicity == "Hispanic" ~ 'Hispanic'))
-hematologic_code = c("CNKIND2", "CNKIND3", "CNKIND12", "CNKIND15")
-paste0("mm$CNKIND", setdiff(seq(1,31,1), c(1,3,12,15)), " == 1", collapse = "|")
-nhis_2017_data = nhis_2017_data %>% mutate(hematologic_cancer = case_when(CNKIND2 == 1 | CNKIND3 == 1 | CNKIND12 == 1 | CNKIND15 == 1 ~ 'Hematological',
-                                                                          CNKIND1 == 2 & CNKIND2 == 2 & CNKIND3 == 2 & CNKIND4 == 2 & CNKIND5 == 2 & CNKIND6 == 2 & CNKIND7 == 2 & CNKIND8 == 2 & CNKIND9 == 2 & CNKIND10 == 2 & CNKIND11 == 2 & CNKIND12 == 2 & CNKIND13 == 2 & CNKIND14 == 2 & CNKIND15 == 2 & CNKIND16 == 2 & CNKIND17 == 2 & CNKIND18 == 2 & CNKIND19 == 2 & CNKIND20 == 2 & CNKIND21 == 2 & CNKIND22 == 2 & CNKIND23 == 2 & CNKIND24 == 2 & CNKIND25 == 2 & CNKIND26 == 2 & CNKIND27 == 2 & CNKIND28 == 2 & CNKIND29 == 2 & CNKIND30 == 2 & CNKIND31 == 2 ~ 'None'))
-nhis_2017_data = nhis_2017_data %>% mutate(non_hematologic_cancer = case_when(CNKIND1 == 1 | CNKIND4 == 1 | CNKIND5 == 1 | CNKIND6 == 1 | CNKIND7 == 1 | CNKIND8 == 1 | CNKIND9 == 1 | CNKIND10 == 1 | CNKIND11 == 1 | CNKIND13 == 1 | CNKIND14 == 1 | CNKIND16 == 1 | CNKIND17 == 1 | CNKIND18 == 1 | CNKIND19 == 1 | CNKIND20 == 1 | CNKIND21 == 1 | CNKIND22 == 1 | CNKIND23 == 1 | CNKIND24 == 1 | CNKIND25 == 1 | CNKIND26 == 1 | CNKIND27 == 1 | CNKIND28 == 1 | CNKIND29 == 1  ~ 'Non_hematological',
-                                                                              CNKIND1 == 2 & CNKIND2 == 2 & CNKIND3 == 2 & CNKIND4 == 2 & CNKIND5 == 2 & CNKIND6 == 2 & CNKIND7 == 2 & CNKIND8 == 2 & CNKIND9 == 2 & CNKIND10 == 2 & CNKIND11 == 2 & CNKIND12 == 2 & CNKIND13 == 2 & CNKIND14 == 2 & CNKIND15 == 2 & CNKIND16 == 2 & CNKIND17 == 2 & CNKIND18 == 2 & CNKIND19 == 2 & CNKIND20 == 2 & CNKIND21 == 2 & CNKIND22 == 2 & CNKIND23 == 2 & CNKIND24 == 2 & CNKIND25 == 2 & CNKIND26 == 2 & CNKIND27 == 2 & CNKIND28 == 2 & CNKIND29 == 2 & CNKIND30 == 2 & CNKIND31 == 2 ~ 'None'))
-nhis_2017_data$hematologic_cancer[which(nhis_2017_data$CANEV == 2)] = "None"
-nhis_2017_data$non_hematologic_cancer[which(nhis_2017_data$CANEV == 2)] = "None"
-nhis_2017_data$hematologic_cancer[which(nhis_2017_data$CNKIND31 == 1)] = NA
-nhis_2017_data$non_hematologic_cancer[which(nhis_2017_data$CNKIND31 == 1)] = NA
+population = population %>% dplyr::select(NAME, agegroup, Race, POPESTIMATE2019)
+colnames(population)[1] = "State"
 
-nhis_2017_data = nhis_2017_data %>% mutate(age_cancer = apply(nhis_2017_data[, 57:86], 1, FUN = function(x){if(sum(!is.na(x)) == 0){return(NA)}else{return(min(x, na.rm = T))}})) 
-nhis_2017_data = nhis_2017_data %>% mutate(age_diff = AGE_P-age_cancer) 
-nhis_2017_data$age_diff[which(nhis_2017_data$age_diff < 0)] = NA
+population_race = population %>% group_by(State, agegroup,Race) %>% summarise(population = sum(POPESTIMATE2019)) %>% ungroup()
 
+data_race = merge(population_race, deaths_race, by = c("State", "agegroup", "Race"))
 
-nhis_2017_data = nhis_2017_data %>% mutate(diagnoses_cancer = case_when(age_diff >= 0 & age_diff < 1 ~ 'less_than_1_yr',
-                                                                        age_diff >= 1 & age_diff < 5 ~ '1_5yr',
-                                                                        age_diff >= 5 ~ 'greater_than_5_yr'))
+data_race = data_race  %>% mutate(death.rate = covid_deaths/population)
 
-nhis_2017_data = nhis_2017_data %>% mutate(Obesity = case_when(BMI >= 30  & BMI < 35 ~ 'Obese_I',
-                                                               BMI >= 35  & BMI < 40 ~ 'Obese_II',
-                                                               BMI >= 40 ~ 'Obese_III',
-                                                               BMI < 30 ~ 'Not_obese'))
+data_race$covid_deaths = as.numeric(data_race$covid_deaths)
+data_race$agegroup = as.factor(data_race$agegroup)
+data_race$Race = as.factor(data_race$Race)
+data_race$agegroup = relevel(data_race$agegroup, ref = "55-64")
+data_race$Race = relevel(data_race$Race, ref = "Non-Hispanic White")
+data_race$State = as.factor(data_race$State)
+data_race = data_race[-which(data_race$population==0), ]
 
+data_race = data_race %>% filter(Race != "Non-Hispanic More than one race") %>% filter(Race != "Non-Hispanic Native Hawaiian or Other Pacific Islander")
+race.model <- glm(covid_deaths~agegroup + Race + State,offset=log(population),family=poisson(link = "log"),data = data_race)
 
-nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "99"
-nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "99"
-colnames(nhis_2017_data)[c(7:8, 12)] = c("sampling_weights", "sex", "age")
-
-
-
-
-# nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "None"
-# nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "None"
-
-nhis_2017_data$hematologic_cancer[which(is.na(nhis_2017_data$hematologic_cancer) == T & nhis_2017_data$non_hematologic_cancer == "Non_hematological")] = "99"
-nhis_2017_data$non_hematologic_cancer[nhis_2017_data$hematologic_cancer == "Hematological" & is.na(nhis_2017_data$non_hematologic_cancer) == T] = "99"
-
-#nhis_2017_data = nhis_2017_data %>% mutate(hematologic_cancer = case_when(hematologic_cancer == "None" ~ 0,
- #                                                                         hematologic_cancer == "Hematological" & age_diff < 1 ~ 1,
-  #                                                                        hematologic_cancer == "Hematological" & age_diff >= 1 & age_diff < 5 ~ 2,
-   #                                                                       hematologic_cancer == "Hematological" & age_diff >= 5 ~ 3))
-
-#nhis_2017_data = nhis_2017_data %>% mutate(non_hematologic_cancer = case_when(non_hematologic_cancer == "None" ~ 0,
- #                                                                               non_hematologic_cancer == "Non_hematological" & age_diff < 1 ~ 1,
-  #                                                                              non_hematologic_cancer == "Non_hematological" & age_diff >= 1 & age_diff < 5 ~ 2,
-   #                                                                             non_hematologic_cancer == "Non_hematological" & age_diff >= 5 ~ 3))
-
-nhis_2017_data$rheumatoid[which(nhis_2017_data$rheumatoid == "NA")] = NA
-nhis_2017_data$smoking_status[which(nhis_2017_data$smoking_status == "NA")] = NA
-nhis_2017_data$diabetes[which(nhis_2017_data$diabetes == "NA")] = NA
-nhis_2017_data$stroke[which(nhis_2017_data$stroke == "NA")] = NA
-
-nhis_2017_data = nhis_2017_data %>% mutate(race_ethnicity.cdc = case_when(ethnicity == "Not_hispanic" & race.cdc == "White" ~ 'Non_hispanic_white',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "Black" ~ 'Non_hispanic_Black',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "Asian" ~ 'Non_hispanic_asian',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "American_Indian"  ~ 'Non_hispanic_american_Indian',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "More_than_one_race" ~ 'Non_hispanic_more_than_one_race',
-                                                                                            ethnicity == "Hispanic" ~ 'Hispanic'))
-
-
-nhis_2017_data = nhis_2017_data[, c(2:6,7,8,12, 99:115, 117:127)]
-
-saveRDS(nhis_2017_data, '~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/data_created/nhis_2017.rds')
-
-nhis_2017_data = nhis_2017_data %>% mutate(eid = seq(1,dim(nhis_2017_data)[1],1))
-
-
-
-reference_data_full_model = nhis_2017_data[, c(2:5,7,8,12, 99, 101,102:106,111:115, 117,119, 121:122, 126, 127)]
-reference_data_full_model = reference_data_full_model %>% mutate(race_ethnicity = case_when(ethnicity == "Not_hispanic" & race.cdc == "White" ~ 'Non_hispanic_white',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "Black" ~ 'Non_hispanic_Black',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "Asian" ~ 'Non_hispanic_asian',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "American_Indian"  ~ 'Non_hispanic_american_Indian',
-                                                                                            ethnicity == "Not_hispanic" & race.cdc == "More_than_one_race" ~ 'Non_hispanic_more_than_one_race',
-                                                                                            ethnicity == "Hispanic" ~ 'Hispanic'))
-
-reference_data_full_model = reference_data_full_model[, c(5,9,26,6,24, 11,16,17,13, 15, 10, 23,22,14, 18, 12, 19, 25)]
-reference_data_full_model_complete = reference_data_full_model[complete.cases(reference_data_full_model), ]
-eid_inc = reference_data_full_model_complete$eid
-
-reference_data_uk = nhis_2017_data[, c(2:5,7,8,12, 99:100,102:106,111:115, 120, 121:122, 126, 127)]
-eid_common = intersect(reference_data_uk$eid, eid_inc)
-
-reference_data_full_model_complete = reference_data_full_model_complete[which(reference_data_full_model_complete$eid %in% eid_common == T), ]
-
-sampling_weights = reference_data_full_model_complete$WTFA_SA
-reference_data_full_model_complete = reference_data_full_model_complete[, -c(1,18)]
-reference_data_full_model_complete$agegroup.cdc = as.factor(reference_data_full_model_complete$agegroup.cdc)
-reference_data_full_model_complete$agegroup.cdc = relevel(reference_data_full_model_complete$agegroup.cdc, ref = "55_64")
-reference_data_full_model_complete$SEX = as.factor(reference_data_full_model_complete$SEX)
-reference_data_full_model_complete$SEX = relevel(reference_data_full_model_complete$SEX, ref = "Female")
-reference_data_full_model_complete$smoking_status = as.factor(reference_data_full_model_complete$smoking_status)
-reference_data_full_model_complete$smoking_status = relevel(reference_data_full_model_complete$smoking_status, ref = "Never")
-reference_data_full_model_complete$race_ethnicity = as.factor(reference_data_full_model_complete$race_ethnicity)
-reference_data_full_model_complete$race_ethnicity = relevel(reference_data_full_model_complete$race_ethnicity, ref = "Non_hispanic_white")
-reference_data_full_model_complete$hypertension = as.factor(reference_data_full_model_complete$hypertension)
-reference_data_full_model_complete$hypertension = relevel(reference_data_full_model_complete$hypertension, ref = "Normal")
-reference_data_full_model_complete$hematologic_cancer = as.factor(reference_data_full_model_complete$hematologic_cancer)
-reference_data_full_model_complete$non_hematologic_cancer = as.factor(reference_data_full_model_complete$non_hematologic_cancer)
-
-reference_data_full_model_complete_model_matrix = model.matrix(as.formula(paste0("~", paste0(colnames(reference_data_full_model_complete), collapse = "+"))), data = reference_data_full_model_complete)
-
-beta_initial = c(-9.367273, as.numeric(CDC_theta[-1]))
-
-
-
-reference_data_cdc = nhis_2017_data[, c(7,101,117,119,8,127)]
-reference_data_cdc = reference_data_cdc[which(reference_data_cdc$eid %in% eid_common == T), ]
-reference_data_cdc = reference_data_cdc[, -6]
-reference_data_cdc = reference_data_cdc %>% mutate(race_ethnicity = case_when(ethnicity == "Not_hispanic" & race.cdc == "White" ~ 'Non_hispanic_white',
-                                                                      ethnicity == "Not_hispanic" & race.cdc == "Black" ~ 'Non_hispanic_Black',
-                                                                      ethnicity == "Not_hispanic" & race.cdc == "Asian" ~ 'Non_hispanic_asian',
-                                                                      ethnicity == "Not_hispanic" & race.cdc == "American_Indian"  ~ 'Non_hispanic_american_Indian',
-                                                                      ethnicity == "Not_hispanic" & race.cdc == "More_than_one_race" ~ 'Non_hispanic_more_than_one_race',
-                                                                      ethnicity == "Hispanic" ~ 'Hispanic'))
-reference_data_cdc = reference_data_cdc[, c(2,6)]
-reference_data_cdc = reference_data_cdc[complete.cases(reference_data_cdc), ]
-reference_data_cdc$race_ethnicity = as.factor(reference_data_cdc$race_ethnicity)
-reference_data_cdc$race_ethnicity = relevel(reference_data_cdc$race_ethnicity, ref = "Non_hispanic_white")
-reference_data_cdc$agegroup.cdc = as.factor(reference_data_cdc$agegroup.cdc)
-reference_data_cdc$agegroup.cdc = relevel(reference_data_cdc$agegroup.cdc, ref = "55_64")
-reference_data_cdc_model_matrix = model.matrix(as.formula(paste0("~", paste0(colnames(reference_data_cdc), collapse = "+"))), data = reference_data_cdc)
-
-
-reference_data_uk = nhis_2017_data[, c(2:5,7,8,12, 99:100,102:106,111:115, 120, 121:122, 126, 127)]
-#reference_data_uk = reference_data_uk[which(reference_data_uk$race_ethnicity == "Non_hispanic_white" | reference_data_uk$race_ethnicity == "Black"), ]
-eid_common = intersect(reference_data_uk$eid, eid_inc)
-reference_data_uk = reference_data_uk[which(reference_data_uk$eid %in% eid_common == T), ]
-reference_data_uk = reference_data_uk[, -24]
-reference_data_uk = reference_data_uk[, c(9,6,23, 11, 20, 16, 17, 13, 15, 10, 22, 21, 14, 18, 12, 19)]
-reference_data_uk_complete = reference_data_uk[complete.cases(reference_data_uk), ]
-reference_data_uk_complete$agegroup = as.factor(reference_data_uk_complete$agegroup)
-reference_data_uk_complete$agegroup = relevel(reference_data_uk_complete$agegroup, ref = "50_60")
-reference_data_uk_complete$SEX = as.factor(reference_data_uk_complete$SEX)
-reference_data_uk_complete$SEX = relevel(reference_data_uk_complete$SEX, ref = "Female")
-reference_data_uk_complete$smoking_status = as.factor(reference_data_uk_complete$smoking_status)
-reference_data_uk_complete$smoking_status = relevel(reference_data_uk_complete$smoking_status, ref = "Never")
-reference_data_uk_complete$race_ethnicity = as.factor(reference_data_uk_complete$race_ethnicity)
-reference_data_uk_complete$race_ethnicity = relevel(reference_data_uk_complete$race_ethnicity, ref = "Non_hispanic_white")
-reference_data_uk_complete$hypertension = as.factor(reference_data_uk_complete$hypertension)
-reference_data_uk_complete$hypertension = relevel(reference_data_uk_complete$hypertension, ref = "Normal")
-reference_data_uk_complete_model_matrix = model.matrix(as.formula(paste0("~", paste0(colnames(reference_data_uk_complete), collapse = "+"))), data = reference_data_uk_complete)
-
-
-#nhis_imputed = readRDS("~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data_created/individual_rs_covariates_imputed_sdi.rds")
-UK_beta = read.xlsx("~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data_created/UK_model.xlsx")
-UK_beta = UK_beta[-c(12,14:17, 23), ]
-weights = c(489297, 1043176, 195243)/17425445
-diabetes_coeff = sum(weights * log(c(1.47, 2.23, 1.91)))
-UK_beta[17,2] =  diabetes_coeff
-UK_beta$Variable_Name_UK[17] = "Diabetes"
-temp = UK_beta$estimate[11]
-UK_beta$estimate[11] = UK_beta$estimate[10]
-UK_beta$estimate[10] = temp
-UK_beta$Variable_Name_UK[10] = "Smoking_current"
-UK_beta$Variable_Name_UK[11] = "Smoking_ex"
-UK_beta = c(UK_beta$estimate, log(1.61))
-
-
-CDC_theta = poisson.model$coefficients[1:11]
-theta_CDC = as.numeric(CDC_theta)
-X_CDC = reference_data_cdc_model_matrix
-X_UK =  reference_data_uk_complete_model_matrix
-X_full = reference_data_full_model_complete_model_matrix
-
-X_CDC_wt = (sampling_weights/(sum(sampling_weights))) * reference_data_cdc_model_matrix
-X_UK_wt =  (sampling_weights/(sum(sampling_weights))) *  reference_data_uk_complete_model_matrix
-X_full_wt = (sampling_weights/(sum(sampling_weights))) * reference_data_full_model_complete_model_matrix
-
-theta_UK = as.numeric(UK_beta)
-names(theta_UK) = c("agegroup18_40", "agegroup40_50","agegroup60_70", "agegroup70_80", "agegroup80+", "Male","Obese_I", "Obese_II", "Obese_III", "Smk_current", "Smk_ex", "Black", "Hypertension", "Resp_ex_asthma","Asthma", "CHD", "Diabetes", "Non_hema_1", "Non_hema_2","Non_hema_3", "Hema_1","Hema_2", "Hema_3", "Stroke", "Kidney", "Arthritis", "Liver")
-Q = function(beta)
-{
-  U = as.numeric(t(X_CDC_wt) %*% as.numeric(expit(X_full[,1:11] %*% beta + X_full[,12:32] %*% theta_UK[-c(1:5,12)]) - expit(X_CDC %*% theta_CDC)))
-  C = diag(length(U))
-  return(as.numeric(U^T %*% C %*% U))
-}
-
-fit.optim = optim(as.numeric(beta_initial), Q, method = c("L-BFGS-B"), control = list(maxit=50))
-adj_est = exp(fit.optim$par)
-names(adj_est) = colnames(X_CDC)
-
-
-
-
-
-
-
-nhis_imputed = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/data_created/nhis_imputed.rds")
+nhis_imputed = readRDS("data_created/nhis_imputed.rds")
 
 nhis_imputed = nhis_imputed %>% mutate(agegroup.cdc = case_when(age >= 15  & age < 45 ~ '15_45',
                                                                 age >= 45  & age < 55 ~ '45_54',
@@ -315,10 +89,10 @@ reference_data_full_model_complete$race_ethnicity.cdc = relevel(reference_data_f
 reference_data_full_model_complete_model_matrix = model.matrix(as.formula(paste0("~", paste0(colnames(reference_data_full_model_complete), collapse = "+"))), data = reference_data_full_model_complete)
 
 
-UK_beta = read.xlsx("~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data_created/UK_model.xlsx")
+UK_beta = read.xlsx("data_created/UK_model_updated.xlsx")
 UK_beta = UK_beta[c(1:11, 13,18:22, 24:32, 14:17), ]
-weights = c(489297, 1043176)/sum(c(489297, 1043176))
-diabetes_coeff = log(sum(weights * c(1.47, 2.23)))
+weights = c(486491, 1038082)/sum(c(486491, 1038082))
+diabetes_coeff = log(sum(weights * c(1.28, 1.86)))
 UK_beta[17,2] =  diabetes_coeff
 UK_beta$Variable_Name_UK[17] = "Diabetes"
 temp = UK_beta$estimate[11]
@@ -326,10 +100,11 @@ UK_beta$estimate[11] = UK_beta$estimate[10]
 UK_beta$estimate[10] = temp
 UK_beta$Variable_Name_UK[10] = "Smoking_current"
 UK_beta$Variable_Name_UK[11] = "Smoking_ex"
+names_UK_beta = UK_beta$Variable_Name_UK
 UK_beta = c(UK_beta$estimate)
 
 
-CDC_theta = poisson.model$coefficients[1:10]
+CDC_theta = race.model$coefficients[1:10]
 theta_CDC = as.numeric(CDC_theta)
 X_CDC = reference_data_cdc_model_matrix
 X_full = reference_data_full_model_complete_model_matrix
@@ -365,7 +140,7 @@ names(adj_est) = colnames(X_CDC)
 
 
 
-census_18_race = read.csv('~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data/Census/RACE_ETHNICITY_2018/ACSDT1Y2018.C03002_data_with_overlays_2020-05-10T211828.csv', skip = 1, header = T)
+census_18_race = read.csv("data/Census/RACE_ETHNICITY_2018/ACSDT1Y2018.C03002_data_with_overlays_2020-05-10T211828.csv", skip = 1, header = T)
 required_columns = c(1,2,3,7,9,11,13,15,17,19,25)
 census_18_race = census_18_race[, required_columns]
 census_18_race = census_18_race[-which(census_18_race$Estimate..Total == "null"),]
@@ -378,7 +153,7 @@ census_18_race = census_18_race %>% mutate(proportion_non_hispanic_white = as.nu
 
 census_18_race = census_18_race[, c(1,2,12:16)]
 census_18_race = census_18_race %>% mutate(PlaceFIPS = str_sub(census_18_race$id, -7,-1))
-saveRDS(census_18_race, file="/Users/prosenjitkundu/Dropbox/NHANES_risk_score/500cities_data/Updated_July_06_2020/data_created/census_18_race.rds")
+saveRDS(census_18_race, file="data_created/census_18_race.rds")
 
 
 
@@ -395,12 +170,12 @@ colnames(US)[c(10,11)] = c('lat','lon')
 # ------------------------- merge city ID with county ID & SDI data -------------------------
 rawSDI=read.xlsx('~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data_created/SDI_quintile.xlsx')
 
-brfss = readRDS("~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data_created/BRFSS.rds")
+brfss = readRDS("data_created/BRFSS.rds")
 cityloc = t(sapply(1:nrow(brfss),function(x){as.numeric(c(substr(strsplit(brfss$Geolocation[x],',')[[1]][1],2,11),substr(strsplit(brfss$Geolocation[x],',')[[1]][2],1,11)))}))
 brfss$lat = as.numeric(cityloc[,1])
 brfss$lon = as.numeric(cityloc[,2])
 
-geocode = read.xlsx('~/Dropbox/NHANES_risk_score/Github/COVID19Risk/data/Geocodes/all-geocodes-2017.xlsx')
+geocode = read.xlsx("data/Geocodes/all-geocodes-2017.xlsx")
 # select the counties that have the same state-county ID as 500 cities:
 colnames(geocode) = geocode[3,]
 geocode = geocode[-c(1:3),]
@@ -700,8 +475,8 @@ saveRDS(combined,file='data_created/combined_updated.rds')
 
 
 #------------NO-model assumption for imputing SDI-------#
-nhis = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Analysis/data_created/individual_rs_covariates.rds")
-data = readRDS("~/Dropbox/NHANES_risk_score/500cities_data/Analysis/data_created/full_output_updated.rds")
+nhis = readRDS("data_created/individual_rs_covariates.rds")
+data = readRDS("data_created/full_output_updated.rds")
 data$population = as.numeric(as.character(data$population))
 nhis.black = subset(nhis,race_ethnicity=="Black")
 nhis.white = subset(nhis,race_ethnicity=="Non_hispanic_white")
